@@ -157,8 +157,7 @@ class UserProfileUpdate(BaseModel):
 class User(UserBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # 用户隐私设置更新模型

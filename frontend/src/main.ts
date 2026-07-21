@@ -2,8 +2,6 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { nextTick } from 'vue'
 import { useAppStore } from '@/stores/app'
-// import Layui from '@layui/layui-vue'
-// import '@layui/layui-vue/lib/index.css'
 //import './styles/element/index.scss'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
@@ -31,14 +29,12 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 	app.component(key, component)
 }
 
-// app.use(Layui)
 app.use(i18n)
 // 根据当前语言初始化Element Plus
 const initialLocale = i18n.global.locale.value === 'zh-CN' ? zhCn : en
 app.use(ElementPlus, {
 	locale: initialLocale
 })
-// app.use(FloatingVue)
 app.use(VueSocialSharing)
 // 创建pinia实例
 const pinia = createPinia()
