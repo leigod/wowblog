@@ -1,0 +1,19 @@
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / 编辑器
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# AI / 工具配置(各子项目亦可自行管理)
+.claude/
+
+# 重新包含所有 Markdown 文档 —— 覆盖全局 ~/.gitignore_global 中的 *.md
+# 开源仓库的 README / 文档 / Issue 与 PR 模板必须入库
+!*.md

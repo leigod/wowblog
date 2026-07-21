@@ -1,0 +1,8 @@
+# 占位文件：保持 docker/mysql/init/ 目录存在于版本控制中。
+#
+# docker-compose 将此目录挂载到 MySQL 容器的 /docker-entrypoint-initdb.d，
+# MySQL 首次启动时会按文件名字母序执行其中的 *.sql。
+#
+# 注意：当前 migrations/*.sql 文件名为语义名，字母序（add_/alter_ 先于 create_）
+# 不符合建表依赖顺序，直接放入会导致建表失败。完整、有序的迁移方案属于 P2 阶段
+# （引入 Alembic）。在此之前，建表仍为部署后手动执行的步骤。

@@ -1,0 +1,576 @@
+<template>
+  <el-menu :default-active="activeIndex" class="el-menu-demo" mode="horizontal" :ellipsis="false"
+    @select="handleSelect">
+    <div class="wy-container hidden-xs-only">
+      <el-menu-item index="0">
+        <img style="width: 100px" :src="siteLogo" :alt="siteTitle" />
+      </el-menu-item>
+      <div class="flex-grow"></div>
+      <!-- 动态渲染导航菜单 -->
+      <template v-for="item in displayNavData" :key="item.id">
+        <!-- 无子菜单的导航项 -->
+        <el-menu-item v-if="!item.children || item.children.length === 0" :index="item.id.toString()">
+          <router-link :to="item.url || '/'" class="wy-nav-link">
+            {{ item.label }}
+          </router-link>
+        </el-menu-item>
+        <!-- 有子菜单的导航项 -->
+        <el-sub-menu v-else :index="item.id.toString()">
+          <template #title>{{ item.label }}</template>
+          <el-menu-item-group>
+            <!-- 第二级菜单 -->
+            <template v-for="child in item.children" :key="`child-${child.id}`">
+              <el-menu-item v-if="!child.children || child.children.length === 0" :index="child.id.toString()">
+                <router-link :to="child.url || `/${child.slug || child.value || ''}`" class="wy-nav-link">
+                  {{ child.label || child.name }}
+                </router-link>
+              </el-menu-item>
+              <el-sub-menu v-else :index="child.id.toString()">
+                <template #title><router-link :to="child.url || `/${child.slug || child.value || ''}`"
+                    class="wy-nav-link">
+                    {{ child.label || child.name }}
+                  </router-link></template>
+                <el-menu-item-group>
+                  <!-- 第三级菜单 -->
+                  <template v-for="grandChild in child.children" :key="`grandchild-${grandChild.id}`">
+                    <el-menu-item v-if="!grandChild.children || grandChild.children.length === 0"
+                      :index="grandChild.id.toString()">
+                      <router-link :to="grandChild.url || `/${grandChild.slug || grandChild.value || ''}`"
+                        class="wy-nav-link">
+                        {{ grandChild.label || grandChild.name }}
+                      </router-link>
+                    </el-menu-item>
+                    <el-sub-menu v-else :index="grandChild.id.toString()">
+                      <template #title><router-link
+                          :to="grandChild.url || `/${grandChild.slug || grandChild.value || ''}`" class="wy-nav-link">
+                          {{ grandChild.label || grandChild.name }}
+                        </router-link></template>
+                      <el-menu-item-group>
+                        <!-- 第四级菜单 -->
+                        <el-menu-item v-for="greatGrandChild in grandChild.children"
+                          :key="`greatgrandchild-${greatGrandChild.id}`" :index="greatGrandChild.id.toString()">
+                          <router-link :to="greatGrandChild.url ||
+                            `/${greatGrandChild.slug || greatGrandChild.value || ''}`
+                            " class="wy-nav-link">
+                            {{ greatGrandChild.label || greatGrandChild.name }}
+                          </router-link>
+                        </el-menu-item>
+                      </el-menu-item-group>
+                    </el-sub-menu>
+                  </template>
+                </el-menu-item-group>
+              </el-sub-menu>
+            </template>
+          </el-menu-item-group>
+        </el-sub-menu>
+      </template>
+      <div class="flex-grow2">
+        <div class="right-item">
+          <el-button :icon="Search" circle @click="dialogVisible = true" />
+          <el-dialog v-model="dialogVisible" fullscreen center :show-close="false" class="search-dialog">
+            <div class="wy-search-input-wrap">
+              <el-input v-model="keywords" class="wy-search-input" :placeholder="$t('navbar.search.input.placeholder')"
+                clearable size="large" @keyup.enter="handleSearch" ref="searchInputRef" />
+            </div>
+            <template #footer>
+              <div class="wy-dialog-footer">
+                <el-button :icon="Search" size="large" round @click="handleSearch">
+                  {{ $t('navbar.search.btn.text') }}
+                </el-button>
+              </div>
+            </template>
+          </el-dialog>
+        </div>
+        <!-- 通知图标 -->
+        <div class="right-item" v-if="isAuthenticated">
+          <el-popover :width="360" placement="bottom-end" trigger="click" popper-class="notification-popover"
+            visible-arrow="true"
+            popper-style="box-shadow: rgb(14 18 22 / 35%) 0px 10px 38px -10px, rgb(14 18 22 / 20%) 0px 10px 20px -15px; padding: 5px;">
+            <template #reference>
+              <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge">
+                <el-button :icon="Bell" circle />
+              </el-badge>
+            </template>
+            <notification-panel @close="closeNotification" ref="notificationPanelRef" />
+          </el-popover>
+        </div>
+        <div class="right-item">
+          <el-tooltip class="box-item" effect="dark" :content="darkTip" placement="bottom"><el-switch v-model="darkMode"
+              :active-action-icon="Moon" :inactive-action-icon="Sunny"
+              @change="handleChangeDark"></el-switch></el-tooltip>
+        </div>
+        <div class="right-item">
+          <el-dropdown :hide-on-click="false" @command="handleChange">
+            <span class="el-dropdown-link">
+              <IconifyIcon icon="heroicons:language" style="font-size: 24px"
+                :color="darkMode ? '#FFFFFFFF' : 'currentColor'" :stroke="darkMode ? '#FFFFFFFF' : 'currentColor'" />
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="item in options" :key="item.value" :command="item.value">{{
+                  item.label
+                  }}</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+        <div class="right-item" v-if="isAuthenticated && appStore.userInfo.username">
+          <el-popover :width="300"
+            popper-style="box-shadow: rgb(14 18 22 / 35%) 0px 10px 38px -10px, rgb(14 18 22 / 20%) 0px 10px 20px -15px; padding: 5px;"
+            placement="bottom-end">
+            <template #reference>
+              <el-avatar :src="appStore.userInfo.profile_image || defaultAvatar" />
+            </template>
+            <template #default>
+              <div class="wy-menu-wrapper">
+                <div class="wy-menu-item">
+                  <el-avatar :size="50" :src="appStore.userInfo.profile_image || defaultAvatar" style="margin: 5px" />
+                  <div>
+                    <p class="demo-rich-content__name" style="margin: 0; font-weight: 500">
+                      {{ appStore.userInfo.full_name || appStore.userInfo.username }}
+                    </p>
+                    <p class="demo-rich-content__mention"
+                      style="margin: 0; font-size: 14px; color: var(--el-color-info)">
+                      @{{ appStore.userInfo.username }}
+                    </p>
+                  </div>
+                </div>
+                <div class="wy-menu-divider"></div>
+                <div class="wy-menu-item" @click="navigateToBookmarks">
+                  <IconifyIcon icon="material-symbols-light:bookmarks-outline"
+                    style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
+                  <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.bookmarks') }}</p>
+                </div>
+                <div class="wy-menu-item" @click="navigateToHistory">
+                  <IconifyIcon icon="material-symbols-light:history"
+                    style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
+                  <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.history') }}</p>
+                </div>
+                <div class="wy-menu-item" @click="navigateToProfile">
+                  <IconifyIcon icon="hugeicons:account-setting-03"
+                    style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
+                  <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.profile') }}</p>
+                </div>
+                <div class="wy-menu-item" @click="navigateToBackend" v-if="appStore.userRole == 'Admin'">
+                  <IconifyIcon icon="carbon:cloud-service-management" width="20" height="20"
+                    style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
+                  <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.dashboard') }}</p>
+                </div>
+                <div class="wy-menu-divider"></div>
+                <div class="wy-menu-item" @click="handleLogout">
+                  <IconifyIcon icon="material-symbols-light:logout-rounded"
+                    style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
+                  <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.logout') }}</p>
+                </div>
+              </div>
+            </template>
+          </el-popover>
+        </div>
+        <div class="right-item" v-else>
+          <el-button type="default" text @click="handleRegister($event)">{{
+            $t('navbar.item.register')
+            }}</el-button>
+          <el-button type="primary" text @click="handleLogin($event)">{{
+            $t('navbar.item.login')
+            }}</el-button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wy-container hidden-sm-and-up">
+      <el-menu-item index="0">
+        <img style="width: 100px" :src="siteLogo" :alt="siteTitle" />
+      </el-menu-item>
+      <div class="flex-grow"></div>
+      <iconify-icon icon="material-symbols-light:menu" style="font-size: 24px" />
+    </div>
+  </el-menu>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ArrowDown, Sunny, Moon, Search, Bell } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { useAppStore } from '@/stores/app'
+import { ElMessage } from 'element-plus'
+import IconifyIcon from '../components/IconIfy.vue'
+import NotificationPanel from './NotificationPanel.vue'
+import 'element-plus/theme-chalk/display.css'
+import { getSiteNavList } from '@/api/services/nav'
+import * as notificationApi from '@/api/services/notifications'
+
+const router = useRouter()
+const appStore = useAppStore()
+const { t } = useI18n()
+const dialogVisible = ref(false)
+const keywords = ref('')
+const searchInputRef = ref()
+const defaultAvatar = '/src/assets/avatar.png'
+const siteLogo = computed(() => appStore.site_logo || '')
+const siteTitle = computed(() => appStore.site_title || '')
+const siteFavicon = computed(() => appStore.site_favicon || '../assets/favicon.ico')
+const language = computed(() => appStore.language || 'zh-CN')
+
+// 定义导航项类型
+interface NavItem {
+  id: number
+  label?: string
+  name?: string
+  type?: string
+  value?: string
+  slug?: string
+  url?: string
+  sort?: number
+  status: number
+  children?: NavItem[]
+}
+
+
+// 导航数据
+const navList = ref<NavItem[]>([])
+
+// 过滤后的显示导航数据
+const displayNavData = computed(() => {
+  return navList.value
+    .filter((item) => item.status === 1)
+    .sort((a, b) => (a.sort || 0) - (b.sort || 0))
+})
+
+// 计算当前激活的菜单项
+const activeIndex = computed(() => {
+  const path = router.currentRoute.value.path
+  // 查找匹配的导航项ID
+  const findActiveNavId = (items: NavItem[]): string => {
+    for (const item of items) {
+      if (item.url === path || item.value === path || item.slug === path) {
+        return item.id.toString()
+      }
+      if (item.children && item.children.length > 0) {
+        const childResult = findActiveNavId(item.children)
+        if (childResult) return childResult
+      }
+    }
+    return '0' // 默认值
+  }
+  return findActiveNavId(navList.value) || '0'
+})
+
+// 获取导航数据
+const fetchNavList = async () => {
+  try {
+    const response = await getSiteNavList()
+    if (response.code === 1 && response.data) {
+      navList.value = response.data
+    }
+  } catch (error) {
+    console.error('获取导航数据失败:', error)
+  }
+}
+
+const handleSelect = (key: string, keyPath: string[]) => {
+  console.log(key, keyPath)
+}
+const props = defineProps({
+  isDark: {
+    type: Boolean,
+    required: false
+  }
+})
+// 确保darkMode与props.isDark保持同步
+const darkMode = ref(props.isDark || false)
+const darkTip = ref(t('navbar.dark.tip'))
+
+// 监听props.isDark变化，确保同步
+watch(
+  () => props.isDark,
+  (newVal) => {
+    darkMode.value = newVal || false
+    if (darkMode.value) {
+      darkTip.value = t('navbar.light.tip')
+    } else {
+      darkTip.value = t('navbar.dark.tip')
+    }
+  }
+)
+
+const options = ref([
+  { label: '中文', value: 'zh-CN' },
+  { label: 'English', value: 'en-US' }
+])
+const emits = defineEmits(['selectLanguage', 'changeDarkMode'])
+const currentLanguage = ref(language.value)
+const handleChange = (command: string | number | object) => {
+  currentLanguage.value = command as string
+  console.log('切换语言:', currentLanguage.value)
+  emits('selectLanguage', currentLanguage.value)
+}
+const handleChangeDark = (val: any) => {
+  console.log('切换暗黑模式:', val)
+  // 先更新本地状态
+  darkMode.value = val
+
+  // 更新提示文本
+  if (val) {
+    darkTip.value = t('navbar.light.tip')
+  } else {
+    darkTip.value = t('navbar.dark.tip')
+  }
+
+  // 通知父组件更新store
+  emits('changeDarkMode', val)
+}
+
+// 初始化提示文本
+if (darkMode.value) {
+  darkTip.value = t('navbar.light.tip')
+}
+
+const isAuthenticated = computed(() => {
+  return !!appStore.token && !!appStore.userRole
+})
+console.log(isAuthenticated.value)
+const handleLogin = (e: Event) => {
+  e.stopPropagation() // 阻止事件冒泡
+
+  // 检查当前是否已登录
+  if (isAuthenticated.value) {
+    // 已登录状态，先清除认证信息再跳转到登录页
+    // appStore.clearUserInfo()
+    // 使用replace避免回退到已登录状态的页面
+    //router.replace('/login')
+    ElMessage({
+      message: '您已经登录，无需重复登录！',
+      type: 'success'
+    })
+  } else {
+    // 未登录状态，直接跳转到登录页
+    router.push('/login')
+  }
+}
+
+const handleRegister = (e: Event) => {
+  e.stopPropagation()
+  router.push('/register')
+}
+
+const navigateToProfile = () => {
+  router.push(`/profile/${appStore.userInfo.username}`)
+}
+
+const navigateToBookmarks = () => {
+  router.push('/bookmarks')
+}
+
+const navigateToBackend = () => {
+  router.push('/admin/dashboard')
+}
+
+const navigateToHistory = () => {
+  router.push('/history')
+}
+
+// 点击搜索按钮，跳转到搜索结果页
+const handleSearch = () => {
+  if (keywords.value.trim()) {
+    dialogVisible.value = false
+    router.push({ path: '/search', query: { q: keywords.value.trim() } })
+  }
+}
+
+const handleLogout = () => {
+  appStore.clearUserInfo()
+  router.push('/login')
+}
+
+// 通知相关
+const unreadCount = ref(0)
+const notificationPanelRef = ref()
+let notificationPollingTimer: ReturnType<typeof setInterval> | null = null
+
+// 加载未读通知数量
+const loadUnreadCount = async () => {
+  if (!isAuthenticated.value) return
+  try {
+    const res = await notificationApi.getUnreadCount()
+    if (res.code === 1) {
+      const newCount = res.data || 0
+      // 只有在数量真正变化时才更新，避免不必要的重新渲染
+      if (unreadCount.value !== newCount) {
+        unreadCount.value = newCount
+      }
+    }
+  } catch (error) {
+    // 静默处理错误，避免频繁的错误提示
+    console.debug('获取未读数量失败:', error)
+  }
+}
+
+// 关闭通知面板
+const closeNotification = () => {
+  loadUnreadCount()
+}
+
+// 启动通知轮询
+const startNotificationPolling = () => {
+  if (notificationPollingTimer) {
+    clearInterval(notificationPollingTimer)
+  }
+  // 每30秒检查一次未读数量
+  notificationPollingTimer = setInterval(() => {
+    loadUnreadCount()
+  }, 30000)
+}
+
+// 停止通知轮询
+const stopNotificationPolling = () => {
+  if (notificationPollingTimer) {
+    clearInterval(notificationPollingTimer)
+    notificationPollingTimer = null
+  }
+}
+
+// 初始化
+onMounted(() => {
+  fetchNavList()
+  loadUnreadCount()
+  startNotificationPolling()
+})
+
+onUnmounted(() => {
+  stopNotificationPolling()
+})
+
+// 定义组件名称
+defineOptions({ name: 'SiteNav' })
+</script>
+
+<style scoped>
+.flex-grow {
+  flex-grow: 1;
+}
+
+.flex-grow2 {
+  flex-grow: 2;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.el-dropdown-link {
+  cursor: pointer;
+  color: var(--el-color-black);
+  display: flex;
+  align-items: center;
+  border: none;
+  outline: none;
+}
+
+.el-dropdown-link:hover {
+  border: none;
+  outline: none;
+  color: var(--el-menu-hover-text-color);
+}
+
+.right-item {
+  height: 100%;
+  margin-left: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.el-menu-demo {
+  display: flex;
+  justify-content: center;
+}
+
+.wy-container {
+  display: flex;
+  width: 1200px;
+}
+
+.wy-search-input-wrap {
+  width: 100%;
+  height: 500px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wy-search-input {
+  width: 80%;
+  height: 50px;
+  border-radius: 50px;
+  font-size: 20px;
+}
+
+.wy-dialog-footer {
+  text-align: center;
+}
+
+.wy-nav-link {
+  color: var(--el-menu-text-color);
+  text-decoration: none;
+}
+
+.wy-nav-link:hover {
+  color: var(--el-menu-active-color);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.wy-menu-wrapper {
+  width: 100%;
+  display: flex;
+  gap: 5px;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.wy-menu-item {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  border-radius: 2px;
+}
+
+.wy-menu-item:hover {
+  color: var(--el-menu-active-color);
+  cursor: pointer;
+  background-color: var(--el-menu-hover-bg-color);
+}
+
+.wy-menu-divider {
+  border-top: 1px var(--el-border-color) var(--el-border-style);
+  display: block;
+  height: 1px;
+  margin: 5px 0;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .wy-hidden-small {}
+
+  .wy-hidden-big {
+    display: none;
+  }
+}
+
+@media only screen and (max-width: 767px) {
+  .wy-container {
+    display: flex;
+    width: 100%;
+    align-items: center;
+  }
+
+  .wy-hidden-small {
+    display: none;
+  }
+
+  .wy-hidden-big {
+    display: flex;
+  }
+}
+</style>
