@@ -5,7 +5,7 @@
 | 文档 | 描述 |
 |------|------|
 | [DEPLOYMENT.md](DEPLOYMENT.md) | 部署指南 - 包含本地开发、Docker 和生产环境部署 |
-| [RELEASE_REVIEW_REPORT.md](RELEASE_REVIEW_REPORT.md) | 代码审查报告 - 安全和质量问题汇总 |
+
 
 ## 快速链接
 
