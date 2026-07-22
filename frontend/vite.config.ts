@@ -7,7 +7,6 @@ import vueJsx from '@vitejs/plugin-vue-jsx'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
-import { LayuiVueResolver } from 'unplugin-vue-components/resolvers'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command }) => ({
@@ -21,10 +20,10 @@ export default defineConfig(({ command }) => ({
     vue(),
     vueJsx(),
     AutoImport({
-      resolvers: [ElementPlusResolver(), LayuiVueResolver()]
+      resolvers: [ElementPlusResolver()]
     }),
     Components({
-      resolvers: [ElementPlusResolver(), LayuiVueResolver()]
+      resolvers: [ElementPlusResolver()]
     })
   ],
   resolve: {
@@ -65,26 +64,3 @@ export default defineConfig(({ command }) => ({
     }
   }
 }))
-
-export interface LayuiVueResolverOptions {
-  /**
-   * 将样式与组件一起导入
-   *
-   * @default 'css'
-   */
-  importStyle?: boolean | 'css'
-
-  /**
-   * 是否解析图标
-   *
-   * @default false
-   */
-  resolveIcons?: boolean
-
-  /**
-   * 排除不需要自动导入的组件
-   *
-   * eg: exclude: ['LayDocTable', /^LayDoc[A-Z]/,]
-   */
-  exclude?: Array<string | RegExp>
-}
