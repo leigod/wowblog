@@ -20,7 +20,8 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import os
 from app.utils.logger import security_logger, api_logger, exception_logger
 from app.services.email_service import EmailConfig, send_reset_password_email
-from pydantic import BaseModel
+from app.utils.auth import verify_password, get_password_hash
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
@@ -143,6 +144,30 @@ async def update_user_profile(
     if not updated_user:
         raise HTTPException(status_code=404, detail="用户不存在")
     return success(data=schemas.UserFullInfo.model_validate(updated_user))
+
+
+class ChangePasswordRequest(BaseModel):
+    """修改密码请求"""
+    old_password: str = Field(min_length=6, max_length=20)
+    new_password: str = Field(min_length=6, max_length=20)
+
+
+@router.post("/users/change-password", response_model=ApiResponse[dict])
+async def change_password(
+    req: ChangePasswordRequest,
+    current_user: Annotated[schemas.User, Depends(get_current_active_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """当前登录用户修改自己的密码（需验证当前密码）"""
+    user = await crud.get_user_by_username(db, current_user.username)
+    if not user or not verify_password(req.old_password, user.password):
+        return error('当前密码错误', [{'msg': '当前密码错误'}])
+    if req.old_password == req.new_password:
+        return error('新密码不能与当前密码相同', [{'msg': '新密码不能与当前密码相同'}])
+    user.password = get_password_hash(req.new_password)
+    user.salt = None
+    await db.commit()
+    return success(msg="密码修改成功", data={"username": current_user.username})
 
 
 # 获取用户最近活动

@@ -59,7 +59,8 @@ app = FastAPI(
 @app.middleware("http")
 async def _force_https_redirect(request, call_next):
     response = await call_next(request)
-    if response.status_code in (301, 302, 307, 308):
+    # 仅生产环境(经 https 反代)修正协议降级；本地 http 开发不触发，避免把本地 http 重定向误改成 https
+    if _is_production and response.status_code in (301, 302, 307, 308):
         location = response.headers.get("location")
         if location and location.startswith("http://"):
             response.headers["location"] = "https://" + location[len("http://"):]

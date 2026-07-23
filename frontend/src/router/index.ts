@@ -44,6 +44,7 @@ const SearchResultView = () => import('@/views/SearchResult.vue')
 const NotificationsView = () => import('@/views/NotificationsView.vue')
 const InviteAcceptView = () => import('@/views/InviteAcceptView.vue')
 const MyArticlesView = () => import('@/views/MyArticlesView.vue')
+const ChangePasswordView = () => import('@/views/ChangePasswordView.vue')
 
 const router = createRouter({
   // history: createWebHistory(import.meta.env.BASE_URL),
@@ -133,6 +134,16 @@ const router = createRouter({
       component: () => import('@/views/ProfileEditView.vue'),
       meta: {
         title: '编辑个人资料',
+        requiresAuth: true,
+        roles: ['Admin', 'User', 'Editor', 'Contributor', 'Author']
+      }
+    },
+    {
+      path: '/change-password',
+      name: 'ChangePassword',
+      component: ChangePasswordView,
+      meta: {
+        title: '修改密码',
         requiresAuth: true,
         roles: ['Admin', 'User', 'Editor', 'Contributor', 'Author']
       }

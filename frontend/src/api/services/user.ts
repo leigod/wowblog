@@ -95,13 +95,12 @@ export const updateUserAvatar = (file: File): Promise<any> => {
  * @returns Promise<any>
  */
 export const changePassword = (data: {
-  oldPassword: string
-  newPassword: string
-  confirmPassword: string
+  old_password: string
+  new_password: string
 }): Promise<any> => {
   return request({
-    url: '/user/password',
-    method: 'PUT',
+    url: '/users/change-password',
+    method: 'POST',
     data
   })
 }

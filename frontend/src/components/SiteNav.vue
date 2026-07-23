@@ -142,6 +142,11 @@
                     style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
                   <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.profile') }}</p>
                 </div>
+                <div class="wy-menu-item" @click="navigateToChangePassword">
+                  <IconifyIcon icon="material-symbols-light:lock"
+                    style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
+                  <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.change_password') }}</p>
+                </div>
                 <div class="wy-menu-item" @click="navigateToMyArticles"
                   v-if="appStore.userRole == 'Author' || appStore.userRole == 'Contributor'">
                   <IconifyIcon icon="material-symbols-light:edit-square-outline"
@@ -277,6 +282,10 @@
                 <IconifyIcon icon="hugeicons:account-setting-03" style="font-size: 18px; margin-right: 8px" />
                 {{ $t('navbar.usercenter.profile') }}
               </el-dropdown-item>
+              <el-dropdown-item :command="'change-password'">
+                <IconifyIcon icon="material-symbols-light:lock" style="font-size: 18px; margin-right: 8px" />
+                {{ $t('navbar.usercenter.change_password') }}
+              </el-dropdown-item>
               <el-dropdown-item v-if="appStore.userRole == 'Author' || appStore.userRole == 'Contributor'"
                 :command="'my-articles'">
                 <IconifyIcon icon="material-symbols-light:edit-square-outline"
@@ -340,8 +349,8 @@ const { t } = useI18n()
 const dialogVisible = ref(false)
 const keywords = ref('')
 const searchInputRef = ref()
-const defaultAvatar = '/src/assets/avatar.png'
-const defaultLogo = '/src/assets/wow_blog_logo.svg'
+const defaultAvatar = '/avatar.png'
+const defaultLogo = '/wow_blog_logo.svg'
 const siteLogo = computed(() => appStore.site_logo || defaultLogo)
 const siteTitle = computed(() => appStore.site_title || 'WOW Blog')
 const language = computed(() => appStore.language || 'zh-CN')
@@ -566,6 +575,10 @@ const navigateToProfile = () => {
   router.push(`/profile/${appStore.userInfo.username}`)
 }
 
+const navigateToChangePassword = () => {
+  router.push('/change-password')
+}
+
 const navigateToBookmarks = () => {
   router.push('/bookmarks')
 }
@@ -639,6 +652,9 @@ const handleUserMenuClick = (command: string) => {
       break
     case 'profile':
       navigateToProfile()
+      break
+    case 'change-password':
+      navigateToChangePassword()
       break
     case 'bookmarks':
       navigateToBookmarks()

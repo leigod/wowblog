@@ -69,6 +69,12 @@
                   </el-icon>
                   {{ $t('admin.general.top.profile') }}
                 </el-dropdown-item>
+                <el-dropdown-item command="change-password">
+                  <el-icon>
+                    <Lock />
+                  </el-icon>
+                  {{ $t('admin.general.top.change_password') }}
+                </el-dropdown-item>
                 <el-dropdown-item command="logout">
                   <el-icon>
                     <CircleClose />
@@ -181,6 +187,9 @@
                   <el-button type="default" size="small" style="margin-bottom: 10px" @click="navigateToProfile">
                     {{ $t('admin.general.top.profile') }}
                   </el-button>
+                  <el-button type="default" size="small" style="margin-bottom: 10px" @click="navigateToChangePassword">
+                    {{ $t('admin.general.top.change_password') }}
+                  </el-button>
                   <el-button type="danger" size="small" style="margin-bottom: 10px" @click="handleLogout">
                     {{ $t('admin.general.top.logout') }}
                   </el-button>
@@ -266,7 +275,8 @@ import {
   CircleClose,
   Bell,
   OfficeBuilding,
-  Notebook
+  Notebook,
+  Lock
 } from '@element-plus/icons-vue'
 import IconifyIcon from '@/components/IconIfy.vue'
 import NotificationPanel from '@/components/NotificationPanel.vue'
@@ -366,8 +376,8 @@ const isAdminDark = computed({
 const enableRouter = ref(true)
 const currentNavKey = ref('1')
 
-const defaultAvatar = '/src/assets/avatar.png'
-const defaultLogo = '/src/assets/wow_blog_logo.svg'
+const defaultAvatar = '/avatar.png'
+const defaultLogo = '/wow_blog_logo.svg'
 const siteLogo = computed(() => appStore.site_logo || defaultLogo)
 const siteTitle = computed(() => appStore.site_title || 'WOW Blog')
 const userRole = computed(() => appStore.userRole || '')
@@ -566,6 +576,10 @@ const navigateToProfile = () => {
   router.push(`/profile/${appStore.userInfo.username}`)
 }
 
+const navigateToChangePassword = () => {
+  router.push('/change-password')
+}
+
 const handleLogout = () => {
   // 清除用户信息和token
   appStore.clearUserInfo()
@@ -664,6 +678,9 @@ const handleUserMenuCommand = (command: string) => {
       break
     case 'profile':
       navigateToProfile()
+      break
+    case 'change-password':
+      navigateToChangePassword()
       break
     case 'logout':
       handleLogout()

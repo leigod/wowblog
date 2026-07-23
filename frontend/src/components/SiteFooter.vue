@@ -7,7 +7,7 @@
         <div v-if="hasLeftContent" class="footer-left">
           <!-- Logo -->
           <div v-if="footerConfig && footerConfig.logo_url" class="footer-logo">
-            <img :src="footerConfig.logo_url" alt="Site Logo" />
+            <img :src="footerConfig.logo_url" alt="Site Logo" @error="onLogoError" />
           </div>
 
           <!-- 网站描述 -->
@@ -102,6 +102,12 @@ interface FooterConfig {
 }
 
 const footerConfig = ref<FooterConfig | null>(null)
+
+// logo 加载失败时回退到默认图（数据库 logo_url 失效兜底）
+const onLogoError = (e: Event) => {
+  const target = e.target as HTMLImageElement | null
+  if (target) target.src = '/wow_blog_logo.svg'
+}
 
 // 动态版权年份
 const currentYear = new Date().getFullYear()
