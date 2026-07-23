@@ -17,3 +17,7 @@ desktop.ini
 # 重新包含所有 Markdown 文档 —— 覆盖全局 ~/.gitignore_global 中的 *.md
 # 开源仓库的 README / 文档 / Issue 与 PR 模板必须入库
 !*.md
+
+# 重新包含数据库迁移脚本（覆盖全局 ~/.gitignore_global 中的 *.sql）
+# migrations 是数据库 schema，开源仓库必须入库
+!backend/migrations/**

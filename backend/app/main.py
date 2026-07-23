@@ -51,6 +51,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# 修正反代后的重定向协议降级：强制把 3xx 重定向 Location 的 http:// 改成 https://
+# 背景：FastAPI 尾斜杠重定向(如 /users/me → /users/me/)生成的 Location，在 Apache 反代
+# (ProxyPass 用 http://127.0.0.1:8000)时会降级成 http://，导致浏览器从 https 被重定向到 http 而失败。
+# 宝塔 Apache 的 RequestHeader X-Forwarded-Proto 在反代场景不可靠，故在后端响应阶段直接强制修正。
+@app.middleware("http")
+async def _force_https_redirect(request, call_next):
+    response = await call_next(request)
+    if response.status_code in (301, 302, 307, 308):
+        location = response.headers.get("location")
+        if location and location.startswith("http://"):
+            response.headers["location"] = "https://" + location[len("http://"):]
+    return response
+
+
 # 挂载静态文件目录
 # 将/static路径映射到app/uploads目录，使上传的文件可以通过URL访问
 app.mount("/static", StaticFiles(directory="app/uploads"), name="static")

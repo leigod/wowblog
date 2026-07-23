@@ -116,6 +116,11 @@ alembic upgrade head                              # 初始化 Alembic baseline
 mysql -u <user> -p <db> < migrations/*.sql        # 执行业务表结构 SQL
 ```
 
+> 📌 `migrations/wowblog.sql` 含完整表结构与初始化数据(系统配置/默认导航/标签/邮件模板)。导入后默认管理员账号:
+> - 用户名:`admin`
+> - 密码:`123456`
+> - ⚠️ 请在首次登录后立即到个人设置修改为强密码
+
 ## 📜 常用脚本
 
 **前端**(`cd frontend`):

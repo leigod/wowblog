@@ -21,8 +21,9 @@ alembic>=1.13.0
 
 # Authentication & Security
 pyjwt>=2.8.0
-bcrypt>=4.1.0
-passlib[bcrypt]>=1.7.4
+# 密码哈希直接使用 bcrypt 库（app/utils/auth.py）；已弃用 passlib
+# passlib 1.7.4 与 bcrypt 4.x 后端初始化不兼容，hash/verify 均抛异常
+bcrypt>=4.0.0,<5.0.0
 
 # WebSockets
 websockets>=12.0
@@ -48,7 +49,6 @@ black>=24.0.0
 
 # Type stubs
 types-requests>=2.31.0
-types-passlib>=1.7.0
 
 # OAuth providers
 pyyaml>=6.0.1

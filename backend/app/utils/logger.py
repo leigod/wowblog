@@ -105,23 +105,30 @@ def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     
     # 检查是否已经添加过处理器，避免重复添加
     if not logger.handlers:
-        # 创建自定义的日期轮转文件处理器
-        file_handler = DateRotatingFileHandler(
-            base_log_dir=DateRotatingFileHandler.BASE_LOG_DIR,
-            log_name=name,
-            max_bytes=DateRotatingFileHandler.LOG_FILE_MAX_SIZE,  # 2MB
-            backup_count=100  # 保留大量备份文件，实际会按日期和大小管理
-        )
-        file_handler.setFormatter(formatter)
-        
-        # 创建控制台处理器
+        # 创建控制台处理器（始终添加，作为基础输出）
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
-        
-        # 添加处理器到记录器
-        logger.addHandler(file_handler)
         logger.addHandler(console_handler)
-    
+
+        # 文件处理器：当 DISABLE_FILE_LOGGING=true 时跳过，或创建失败时优雅降级
+        # （容器内非 root 用户可能无权写日志目录，此时只用控制台输出，避免进程崩溃）
+        disable_file_logging = os.environ.get("DISABLE_FILE_LOGGING", "").lower() in ("1", "true", "yes")
+        if not disable_file_logging:
+            try:
+                file_handler = DateRotatingFileHandler(
+                    base_log_dir=DateRotatingFileHandler.BASE_LOG_DIR,
+                    log_name=name,
+                    max_bytes=DateRotatingFileHandler.LOG_FILE_MAX_SIZE,  # 2MB
+                    backup_count=100  # 保留大量备份文件，实际会按日期和大小管理
+                )
+                file_handler.setFormatter(formatter)
+                logger.addHandler(file_handler)
+            except (PermissionError, OSError) as e:
+                # 日志目录不可写（常见于容器内非 root 用户），降级为仅控制台输出
+                console_handler.stream.write(
+                    f"[logger] 文件日志不可用，降级为仅控制台输出: {e}\n"
+                )
+
     return logger
 
 # 创建不同模块的日志记录器

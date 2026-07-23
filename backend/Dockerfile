@@ -52,4 +52,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)" || exit 1
 
 # 启动命令
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers：信任反代（Nginx/Apache）转发的 X-Forwarded-Proto/For，使后端知晓真实 https 协议，
+# 避免 FastAPI 尾斜杠重定向(307)把 Location 降级成 http（反代 https 场景必加）
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
