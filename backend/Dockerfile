@@ -13,6 +13,11 @@ WORKDIR /build
 # 复制依赖文件
 COPY requirements.txt .
 
+# pip 镜像源：默认阿里云（国内服务器直连 PyPI 官方源经常超时）；
+# 海外部署可在构建时覆盖：docker build --build-arg PIP_INDEX_URL=https://pypi.org/simple .
+ARG PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+
 # 建虚拟环境并装入依赖（venv 固定在 /opt/venv，默认 755 权限，任意用户可读可执行）
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
