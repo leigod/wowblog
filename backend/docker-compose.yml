@@ -13,6 +13,9 @@ services:
     image: mysql:8.0
     container_name: wowblog_mysql
     restart: unless-stopped
+    # 关 performance_schema（内部监控，个人站用不上，省 ~150MB 内存；
+    # 2GB 小服务器防 swap 打满的关键配置之一）
+    command: --performance_schema=0
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
       MYSQL_DATABASE: ${MYSQL_DATABASE:?set MYSQL_DATABASE in .env}

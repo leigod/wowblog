@@ -62,4 +62,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # 会从 wb_user_oauth 起依次建表/加列，与 dump 导入的存量结构兼容。
 # --proxy-headers：信任反代（Nginx/Apache）转发的 X-Forwarded-Proto/For，使后端知晓真实 https 协议，
 # 避免 FastAPI 尾斜杠重定向(307)把 Location 降级成 http（反代 https 场景必加）
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --workers 4"]
+# workers=2：2GB 内存小服务器实测结论——4 workers + MySQL8 + 面板会导致 swap 打满、
+# 冷页面延迟秒级（文档中心超时根因）。个人博客 2 worker 足够；升配后可调回 4。
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --workers 2"]
