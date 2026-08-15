@@ -172,7 +172,7 @@
               :src="
                 article.author_profile_image
                   ? article.author_profile_image
-                  : '/src/assets/avatar.png'
+                  : '/avatar.png'
               "
               class="author-avatar"
             />
@@ -278,7 +278,7 @@
                 :src="
                   scope.row.author_profile_image
                     ? scope.row.author_profile_image
-                    : '/src/assets/avatar.png'
+                    : '/avatar.png'
                 "
                 class="author-avatar"
               />
@@ -758,7 +758,7 @@ const handlePreviewArticle = async (article: any) => {
 
         // 获取作者信息（优先使用响应中的作者信息）
         const authorName = res.data.full_name || res.data.author_full_name || previewData.author_full_name || 'Unknown Author'
-        const authorAvatar = res.data.profile_image || res.data.author_profile_image || previewData.author_profile_image || '/src/assets/avatar.png'
+        const authorAvatar = res.data.profile_image || res.data.author_profile_image || previewData.author_profile_image || '/avatar.png'
 
         const html = `
           <!DOCTYPE html>
@@ -786,7 +786,7 @@ const handlePreviewArticle = async (article: any) => {
             ${coverImage}
             <h1 class="article-title">${previewData.title || 'Untitled Article'}</h1>
             <div class="article-meta">
-              <img src="${authorAvatar}" class="author-avatar" onerror="this.src='/src/assets/avatar.png'">
+              <img src="${authorAvatar}" class="author-avatar" onerror="this.src='/avatar.png'">
               <span>${authorName}</span>
               <span>•</span>
               <span>Draft</span>

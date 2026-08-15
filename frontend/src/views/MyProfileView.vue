@@ -174,7 +174,7 @@ const loadUserData = async () => {
       name: res.data.username || '',
       tagline: res.data.profile_tagline || '',
       joinDate: res.data.createtime ? formatDateTime(res.data.createtime, 'YYYY年MM月DD日') : '',
-      avatarUrl: res.data.profile_image || '/src/assets/avatar.png',
+      avatarUrl: res.data.profile_image || '/avatar.png',
       blog: {
         title: 'Freebox',
         url: 'freenbox.hashnode.dev'

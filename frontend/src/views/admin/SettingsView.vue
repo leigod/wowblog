@@ -77,6 +77,12 @@
                 <p class="form-hint">{{ t('admin.settings.basic.disable_doc_comments_hint') }}</p>
               </div>
             </el-form-item>
+            <el-form-item :label="t('admin.settings.basic.sensitive_words')">
+              <div class="form-item">
+                <el-switch v-model="formState.sensitiveWordsEnabled" />
+                <p class="form-hint">{{ t('admin.settings.basic.sensitive_words_hint') }}</p>
+              </div>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleSubmit">{{ t('admin.settings.basic.save') }}</el-button>
             </el-form-item>
@@ -280,6 +286,51 @@
             </div>
           </div>
         </el-tab-pane>
+
+        <!-- OAuth 社交登录配置 -->
+        <el-tab-pane :label="t('admin.settings.tabs.social')" name="social">
+          <div class="notification-config-section">
+            <div class="section-header">
+              <h3>{{ t('admin.settings.social.section_title') }}</h3>
+              <p class="section-desc">{{ t('admin.settings.social.section_desc') }}</p>
+            </div>
+
+            <el-form ref="socialFormRef" :model="socialFormState"
+              :label-width="socialFormLabelConfig.labelWidth"
+              :label-position="socialFormLabelConfig.labelPosition" class="settings-form">
+              <el-form-item :label="t('admin.settings.social.enable_oauth')">
+                <div class="form-item">
+                  <el-switch v-model="socialFormState.oauthEnabled" />
+                  <p class="form-hint">{{ t('admin.settings.social.enable_oauth_hint') }}</p>
+                </div>
+              </el-form-item>
+
+              <el-form-item :label="t('admin.settings.social.enabled_providers')">
+                <el-checkbox-group v-model="socialFormState.enabledProviders">
+                  <el-checkbox value="google">Google</el-checkbox>
+                  <el-checkbox value="github">GitHub</el-checkbox>
+                  <el-checkbox value="gitee">Gitee</el-checkbox>
+                  <el-checkbox value="apple">Apple</el-checkbox>
+                  <el-checkbox value="wechat">{{ t('admin.settings.social.wechat') }}</el-checkbox>
+                  <el-checkbox value="qq">QQ</el-checkbox>
+                </el-checkbox-group>
+                <p class="form-hint">{{ t('admin.settings.social.enabled_providers_hint') }}</p>
+              </el-form-item>
+
+              <el-form-item>
+                <el-button type="primary" @click="handleSocialSubmit">{{ t('admin.settings.social.save')
+                  }}</el-button>
+              </el-form-item>
+            </el-form>
+
+            <el-divider />
+
+            <div class="info-box">
+              <h4>{{ t('admin.settings.social.info_title') }}</h4>
+              <p>{{ t('admin.settings.social.info_content') }}</p>
+            </div>
+          </div>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -381,6 +432,11 @@ const emailFormLabelConfig = computed(() => ({
   labelPosition: isMobile.value ? 'top' : 'right'
 }))
 
+const socialFormLabelConfig = computed(() => ({
+  labelWidth: isMobile.value ? 'auto' : '160px',
+  labelPosition: isMobile.value ? 'top' : 'right'
+}))
+
 const formRef = ref<FormInstance>()
 const messageFormRef = ref<FormInstance>()
 const notificationFormRef = ref<FormInstance>()
@@ -390,7 +446,8 @@ const formState = reactive({
   favicon: '',
   pageSize: 20,
   disableComments: false,
-  disableDocComments: false
+  disableDocComments: false,
+  sensitiveWordsEnabled: false
 })
 
 // 消息推送配置状态
@@ -403,6 +460,13 @@ const messageFormState = reactive({
 const notificationFormState = reactive({
   enableArticleReviewNotification: false,
   notifyRoles: [] as string[]
+})
+
+// OAuth 社交登录配置状态
+const socialFormRef = ref<FormInstance>()
+const socialFormState = reactive({
+  oauthEnabled: false,
+  enabledProviders: [] as string[]
 })
 
 // WebSocket 连接状态 - 实际监听 WebSocket 服务
@@ -548,6 +612,7 @@ onMounted(async () => {
       formState.disableComments = res.data.disable_comment
       // doc_comment: 0=禁用, 1=开启; 前端switch是"是否禁用"，需要反转
       formState.disableDocComments = res.data.doc_comment === 0
+      formState.sensitiveWordsEnabled = res.data.sensitive_words_enabled === 1
 
       // 加载消息推送配置
       if (res.data.message_push_method) {
@@ -568,6 +633,12 @@ onMounted(async () => {
           notificationFormState.notifyRoles = []
         }
       }
+
+      // 加载 OAuth 社交登录配置
+      socialFormState.oauthEnabled = res.data.oauth_enabled === 1
+      socialFormState.enabledProviders = Array.isArray(res.data.enabled_oauth_providers)
+        ? res.data.enabled_oauth_providers
+        : []
     }
   } catch (error) {
     console.error('获取网站配置失败:', error)
@@ -599,7 +670,8 @@ const handleSubmit = async () => {
       site_favicon: formState.favicon,
       disable_comment: formState.disableComments,
       // doc_comment: 0=禁用, 1=开启; 前端switch是"是否禁用"，需要反转
-      doc_comment: formState.disableDocComments ? 0 : 1
+      doc_comment: formState.disableDocComments ? 0 : 1,
+      sensitive_words_enabled: formState.sensitiveWordsEnabled ? 1 : 0
     }
     const res = await updateSiteConfig(data)
     if (res.code === 1) {
@@ -655,6 +727,27 @@ const handleNotificationSubmit = async () => {
   } catch (err) {
     console.error('保存文章审核通知设置失败:', err)
     ElMessage.error(t('admin.settings.notification.save_failed'))
+  }
+}
+
+// 保存 OAuth 社交登录设置
+const handleSocialSubmit = async () => {
+  try {
+    const data = {
+      oauth_enabled: socialFormState.oauthEnabled ? 1 : 0,
+      enabled_oauth_providers: socialFormState.enabledProviders
+    }
+    const res = await updateSiteConfig(data)
+    if (res.code === 1) {
+      ElMessage.success(t('admin.settings.social.save_success'))
+      // 刷新 appStore 中的站点配置（登录页/绑定页据此显隐）
+      await appStore.fetchSiteConfig()
+    } else {
+      ElMessage.error(res.msg || t('admin.settings.social.save_failed'))
+    }
+  } catch (err) {
+    console.error('保存 OAuth 社交登录设置失败:', err)
+    ElMessage.error(t('admin.settings.social.save_failed'))
   }
 }
 

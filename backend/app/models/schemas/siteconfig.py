@@ -31,3 +31,10 @@ class SiteConfig(BaseModel):
     # 文章审核通知配置
     enable_article_review_notification: Literal[0, 1] = 0
     article_review_notification_roles: Optional[str] = None  # JSON数组格式
+
+    # OAuth 社交登录配置（兼容 DB NULL：未配置即视为关闭）
+    oauth_enabled: Literal[0, 1] | None = None
+    enabled_oauth_providers: Optional[list[str]] = None  # 启用的 provider 列表
+
+    # 内容安全配置
+    sensitive_words_enabled: Literal[0, 1] | None = None

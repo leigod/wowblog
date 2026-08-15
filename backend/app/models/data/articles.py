@@ -29,6 +29,8 @@ class BlogArticle(Base):
     is_featured = Column(Integer, default=0)
     updatetime = Column(Integer, default=lambda: int(time.time()))
     createtime = Column(Integer, default=lambda: int(time.time()))
+    sort = Column(Integer, default=0, comment='排序权重')
+    deletetime = Column(Integer, nullable=True, comment='软删时间戳，NULL=未删')
 
 
 class BlogArticleStatData(Base):

@@ -6,7 +6,6 @@ import app.crud.tags as crud_tags
 import app.models.schemas.tags as schemas_tags
 from sqlalchemy import and_, func, insert, select, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
-import os
 import time
 from fastapi import HTTPException, Request
 from app.utils.auth import get_password_hash
@@ -260,8 +259,8 @@ async def get_member_list(db: AsyncSession, skip: int = 0, limit: int = 100):
 
 # 管理后台创建成员
 async def create_member(member: schemas.MemberCreateBase, db: AsyncSession):
-    # 成员默认密码（首次登录后应修改）;可通过环境变量 DEFAULT_MEMBER_PASSWORD 配置
-    password = os.getenv("DEFAULT_MEMBER_PASSWORD", "changeme123")
+    # 成员默认密码（首次登录后应修改）
+    password = '123456'
     # 密码使用 bcrypt 哈希（salt 由 bcrypt 内部管理，user.salt 置空）
     encrypted_password = get_password_hash(password)
     db_member = models.User(

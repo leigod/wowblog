@@ -51,7 +51,10 @@ export const useAppStore = defineStore('app', {
       // 消息推送配置
       websocketEnabled: true,
       pollingInterval: 30000,
-      messagePushMethod: 'websocket'
+      messagePushMethod: 'websocket',
+      // OAuth 社交登录配置（后台运营开关）
+      oauth_enabled: false,
+      enabled_oauth_providers: [] as string[]
     }
   },
   actions: {
@@ -183,6 +186,8 @@ export const useAppStore = defineStore('app', {
       this.disable_comment = config.disable_comment || false
       this.dark_mode = config.dark_mode || 'system'
       this.enable_register = config.enable_register !== undefined ? config.enable_register === 1 : true
+      this.oauth_enabled = config.oauth_enabled === 1
+      this.enabled_oauth_providers = Array.isArray(config.enabled_oauth_providers) ? config.enabled_oauth_providers : []
 
       // 动态更新 favicon
       const updateFavicon = (faviconUrl: string) => {

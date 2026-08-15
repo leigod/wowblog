@@ -29,7 +29,7 @@ const formatMentionItem = (user: MentionUser): MentionItem => ({
   id: user.id,
   name: user.full_name || user.username,
   username: user.username,
-  avatar: user.profile_image || '/src/assets/avatar.png'
+  avatar: user.profile_image || '/avatar.png'
 })
 
 // 搜索用户（带缓存）

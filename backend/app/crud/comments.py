@@ -32,6 +32,8 @@ async def get_comment_list(
         models.BlogComments.type == type,
         models.BlogComments.subject_id == subject_id,
         models.BlogComments.status == 1,
+        # 待审核(pending)/已拒绝(rejected)的评论前台不展示
+        models.BlogComments.audit_status == 'approved',
     ]
 
     # 根据article_id或doc_id查询

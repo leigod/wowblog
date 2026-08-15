@@ -512,13 +512,13 @@ const menuItems = computed(() => [
     title: t('admin.general.side.menu.docbooks'),
     roles: ['Admin']
   },
-  // {
-  //   index: '15',
-  //   route: '/admin/logs',
-  //   icon: Message,
-  //   title: t('admin.general.side.menu.messages'),
-  //   roles: ['Admin']
-  // }
+  {
+    index: '15',
+    route: '/admin/logs',
+    icon: Document,
+    title: t('admin.general.side.menu.logs'),
+    roles: ['Admin']
+  }
 ])
 
 // 根据用户角色过滤菜单项（侧边栏显示，排除隐藏项）

@@ -14,7 +14,7 @@ class BlogCommentBase(BaseModel):
     likes: int | None = 0
     unlikes: int | None = 0
     replys: int | None = 0
-    type: str = 'reply'
+    type: Literal['subject', 'reply'] = 'reply'
     subject_id: int | None = 0
     sort: int | None = 0
     status: int | None = 1
@@ -25,7 +25,7 @@ class BlogCommentCreateForm(BaseModel):
     doc_id: int | None = None  # 添加文档ID
     user_id: int | None = None
     comment: str
-    type: str = 'reply'
+    type: Literal['subject', 'reply'] = 'reply'
     subject_id: int | None = 0
     pid: int | None = 0
 
@@ -37,7 +37,7 @@ class BlogCommentCreate(BlogCommentBase):
     likes: int | None = 0
     unlikes: int | None = 0
     replys: int | None = 0
-    type: str = 'reply'
+    type: Literal['subject', 'reply'] = 'reply'
     subject_id: int | None = 0
     sort: int | None = 0
     status: int | None = 1
@@ -55,7 +55,7 @@ class BlogCommentListItem(BaseModel):
     likes: int | None = 0
     unlikes: int | None = 0
     replys: int | None = 0
-    type: str = 'reply'
+    type: Literal['subject', 'reply'] = 'reply'
     subject_id: int | None = 0
     pid: int | None = 0
     createtime: int | None = int(time.time())

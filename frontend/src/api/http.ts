@@ -22,6 +22,9 @@ const http: AxiosInstance = axios.create({
   // 3. .env - 通用环境配置
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 10000,
+  // 跨域携带 cookie：OAuth 回调后通过 httpOnly cookie 中转 access_token，
+  // 前端调 /auth/oauth/session 取 token 时必须带凭证。不影响现有 Bearer header 认证。
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -91,10 +94,12 @@ http.interceptors.response.use(
 
     const res = response.data
 
-    // 处理业务错误
+    // 处理业务错误（注意 res.data 可能为空数组/对象，必须可选链，
+    // 否则 res.data[0].msg 在 data 为空时抛 TypeError，导致后端 msg 无法展示）
     if (res.code !== 1) {
-      ElMessage.error(res.data[0].msg || res.msg || '请求失败')
-      return Promise.reject(new Error(res.data[0].msg || res.msg || 'Error'))
+      const errMsg = res.data?.[0]?.msg || res.msg || '请求失败'
+      ElMessage.error(errMsg)
+      return Promise.reject(new Error(errMsg))
     }
 
     //return res.data || res

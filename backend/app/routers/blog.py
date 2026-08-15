@@ -9,6 +9,8 @@ from datetime import datetime
 from app.models.response import ApiResponse
 from app.database import get_db
 from app.utils.response import success, error
+from app.services.sensitive_word_service import check_sensitive_content
+from app.crud.admin_comments import check_user_blacklist
 from app.utils.logger import api_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Literal
@@ -404,12 +406,26 @@ async def create_comment(
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
+    # 禁评黑名单检测（有效期内禁止评论；expire_at 到期由查询端惰性判断，自动解封）
+    if await check_user_blacklist(db, user_id, type='comment'):
+        return error('您已被禁止评论，如有疑问请联系管理员')
+
+    # 敏感词检测：banned 拦截 / replace 替换文本 / review 置待审核
+    sr = await check_sensitive_content(db, comment.comment)
+    if sr.blocked:
+        return error('内容包含违禁词，请修改后重新发布')
+    comment.comment = sr.text
+
     comment_entity = await crudComments.add_comment(
         db,
         request=request,
         comment=comment,
         user_id=user_id,
     )
+    # 命中"标记审核"档：置为待审核（前台不展示，进后台审核队列）
+    if sr.need_review:
+        comment_entity.audit_status = 'pending'
+        await db.commit()
     return success(data=comment_entity)
 
 
@@ -1307,58 +1323,5 @@ async def get_top_commenters(
     commenter_list = await crudComments.get_top_commenters(db, limit=limit, days=days)
     return success(data=commenter_list)
 
-
-@router.get("/blog/users/privacy", response_model=ApiResponse[dict])
-async def get_user_privacy(
-    user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    获取当前用户的隐私设置
-
-    返回：
-    - 用户隐私设置
-    """
-    from app.models.data.users import User
-    from sqlalchemy import select
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return success(data={
-        'privacy_show_bookmarks': user.privacy_show_bookmarks,
-        'privacy_show_likes': user.privacy_show_likes,
-        'privacy_show_comments': user.privacy_show_comments,
-        'privacy_show_views': user.privacy_show_views
-    })
-
-
-@router.get("/blog/comments/top-commenters", response_model=ApiResponse[List[schemasComments.TopCommenter]])
-async def get_top_commenters(
-    limit: int = 5,
-    days: int = 7,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    获取本周（或指定天数内）活跃评论者
-
-    参数:
-        limit: 返回数量限制，默认5，最大20
-        days: 统计天数，默认7天
-
-    返回:
-        活跃评论者列表，按评论数量降序排列
-    """
-    # 限制参数范围
-    if limit <= 0:
-        limit = 5
-    if limit > 20:
-        limit = 20
-    if days <= 0:
-        days = 7
-
-    commenter_list = await crudComments.get_top_commenters(db, limit=limit, days=days)
-    return success(data=commenter_list)
+# 注：原文件此处有一段与上方完全重复的 privacy + get_top_commenters 路由注册（复制粘贴遗留），
+# 导致 OpenAPI 重复 operation ID 警告，已删除。

@@ -40,6 +40,7 @@ const MemberManagementView = () => import('@/views/admin/MemberManagementView.vu
 const UserManagementView = () => import('@/views/admin/UserManagementView.vue')
 const EditArticleView = () => import('@/views/admin/EditArticleView.vue')
 const CommentManagementView = () => import('@/views/admin/CommentManagementView.vue')
+const AdminLogsView = () => import('@/views/admin/AdminLogsView.vue')
 const SearchResultView = () => import('@/views/SearchResult.vue')
 const NotificationsView = () => import('@/views/NotificationsView.vue')
 const InviteAcceptView = () => import('@/views/InviteAcceptView.vue')
@@ -465,6 +466,12 @@ const router = createRouter({
           name: 'admin-comments',
           component: CommentManagementView,
           meta: { layout: 'admin', title: '评论管理', roles: ['Admin'] }
+        },
+        {
+          path: 'logs',
+          name: 'admin-logs',
+          component: AdminLogsView,
+          meta: { layout: 'admin', title: '操作日志', roles: ['Admin'] }
         }
       ]
     },

@@ -50,7 +50,8 @@ export default {
       members: '成员管理',
       users: '用户管理',
       docbooks: '文档系统',
-      messages: '消息管理'
+      messages: '消息管理',
+      logs: '操作日志'
     }
   },
   breadcrumb: {

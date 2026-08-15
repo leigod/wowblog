@@ -276,7 +276,7 @@
           <el-container direction="vertical" v-if="showCommentForm">
             <el-row>
               <div class="wy-comment-author">
-                <el-avatar :size="30" :src="appStore.userInfo?.profile_image || '/src/assets/avatar.png'" />
+                <el-avatar :size="30" :src="appStore.userInfo?.profile_image || '/avatar.png'" />
                 <div class="author">{{ appStore.userInfo?.username || 'Anonymous' }}</div>
               </div>
             </el-row>
@@ -429,7 +429,7 @@
           <el-container direction="vertical" v-if="showReplyForm">
             <el-row>
               <div class="wy-comment-author">
-                <el-avatar :size="30" :src="appStore.userInfo?.profile_image || '/src/assets/avatar.png'" />
+                <el-avatar :size="30" :src="appStore.userInfo?.profile_image || '/avatar.png'" />
                 <div class="author">{{ appStore.userInfo?.username || 'Anonymous' }}</div>
               </div>
             </el-row>
@@ -915,7 +915,7 @@ const loadArticleDetail = async () => {
 
       articleDetail.value = res.data.article
       tagTtems.value = res.data.tags
-      circleUrl.value = res.data.profile_image || '/src/assets/avatar.png'
+      circleUrl.value = res.data.profile_image || '/avatar.png'
       articleAuthor.value = res.data.full_name || 'Unknown'
       articleUsername.value = res.data.username || ''
       articleStat.value = res.data.stat_data

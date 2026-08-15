@@ -256,23 +256,32 @@ export const deleteBlacklist = (blacklistId: number) => {
 
 // ==================== 系统设置 ====================
 
+// 注：getCommentSettings / updateSystemSetting 已删除——wb_system_settings 与 wb_config 重复，后端端点已移除。
+
 /**
- * 获取评论设置
+ * 批量导入敏感词（纯文本，一行一条：词 / 词=>替换词 / 词@@review）
  */
-export const getCommentSettings = () => {
+export const importSensitiveWords = (content: string, category?: string) => {
   return request({
-    url: '/admin/comments/settings',
-    method: 'GET'
+    url: '/admin/comments/sensitive-words/import',
+    method: 'POST',
+    data: { content, category }
   })
 }
 
 /**
- * 更新系统设置
+ * 导出全部敏感词（返回纯文本）。
+ * 用 fetch 而非统一 http 实例：导出是 text/plain 响应、无 code 信封，
+ * 走 axios 响应拦截器会被当作业务错误。
  */
-export const updateSystemSetting = (key: string, value: string) => {
-  return request({
-    url: '/admin/comments/settings/update',
-    method: 'POST',
-    data: { key, value }
+export const exportSensitiveWords = async (): Promise<string> => {
+  const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+  const base = import.meta.env.VITE_API_BASE_URL || '/api'
+  const resp = await fetch(`${base}/admin/comments/sensitive-words/export`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined
   })
+  if (!resp.ok) {
+    throw new Error(`export failed: ${resp.status}`)
+  }
+  return resp.text()
 }

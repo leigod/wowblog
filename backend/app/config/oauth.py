@@ -31,6 +31,10 @@ class OAuthConfig:
     GITHUB_API_URL = 'https://api.github.com/user'
     GITHUB_SCOPE = 'user:email'
 
+    # Gitee（国内代码托管）
+    GITEE_CLIENT_ID = os.getenv('GITEE_CLIENT_ID', '')
+    GITEE_CLIENT_SECRET = os.getenv('GITEE_CLIENT_SECRET', '')
+
     # Apple Sign In
     APPLE_CLIENT_ID = os.getenv('APPLE_CLIENT_ID', '')
     APPLE_TEAM_ID = os.getenv('APPLE_TEAM_ID', '')
@@ -39,6 +43,14 @@ class OAuthConfig:
     APPLE_AUTH_URL = 'https://appleid.apple.com/auth/authorize'
     APPLE_TOKEN_URL = 'https://appleid.apple.com/auth/token'
     APPLE_SCOPE = 'name email'
+
+    # WeChat 开放平台（网站应用扫码登录）
+    WECHAT_CLIENT_ID = os.getenv('WECHAT_CLIENT_ID', '')          # AppID
+    WECHAT_CLIENT_SECRET = os.getenv('WECHAT_CLIENT_SECRET', '')  # AppSecret
+
+    # QQ 互联
+    QQ_CLIENT_ID = os.getenv('QQ_CLIENT_ID', '')                  # APP ID
+    QQ_CLIENT_SECRET = os.getenv('QQ_CLIENT_SECRET', '')          # APP Key
 
 
 # 验证必需的配置

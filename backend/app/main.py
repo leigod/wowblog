@@ -6,6 +6,7 @@ from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from app.exceptions import (
     http_exception_handler,
@@ -14,6 +15,8 @@ from app.exceptions import (
     general_exception_handler
 )
 from app.routers import blog, users, media, auth, docbook, doc, notifications, admin_comments, member_invitations, websocket
+from app.routers import admin_logs
+from app.middleware.admin_audit import admin_audit_middleware
 from app.internal import admin, upload, articles
 from app.dependencies.authentication import get_current_active_admin_user
 from app.utils.logger import cleanup_old_logs, compress_old_logs, DateRotatingFileHandler
@@ -87,6 +90,21 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+# Session 中间件：authlib OAuth 的 state / nonce 经由签名 cookie 中转（无状态，多 worker 友好）。
+# 密钥优先用独立的 SESSION_SECRET_KEY，留空则回退到 JWT_SECRET_KEY（开发平滑），生产环境必须显式设置。
+_session_secret = os.getenv("SESSION_SECRET_KEY") or os.getenv("JWT_SECRET_KEY")
+if not _session_secret:
+    if _is_production:
+        raise ValueError("SESSION_SECRET_KEY（或 JWT_SECRET_KEY）在生产环境必须设置")
+    _session_secret = "dev-session-secret-change-me"
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=_session_secret,
+    max_age=600,          # 10 分钟，足够完成一次 OAuth 授权往返
+    same_site="lax",
+    https_only=_is_production,
+)
+
 # 注册异常处理器
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
@@ -118,6 +136,9 @@ app.include_router(notifications.router, prefix='/api', tags=['notifications'])
 # 评论管理模块路由
 app.include_router(admin_comments.router, prefix='/api', tags=['admin_comments'])
 
+# 管理员操作日志（审计中间件自动写入，此处提供查询）
+app.include_router(admin_logs.router, prefix='/api/admin', tags=['admin_logs'])
+
 # 成员邀请模块路由
 app.include_router(member_invitations.router, prefix='/api', tags=['member_invitations'])
 
@@ -144,6 +165,13 @@ async def global_rate_limit(request: Request, call_next):
             headers=getattr(exc, "headers", None),
         )
     return await call_next(request)
+
+
+# 管理员操作审计：记录后台写操作 + 登录/登出（最后注册 = 最外层，记录最终响应码）
+# 写入失败只 warning 不影响主请求；详见 app/middleware/admin_audit.py
+@app.middleware("http")
+async def admin_audit(request: Request, call_next):
+    return await admin_audit_middleware(request, call_next)
 
 
 @app.get("/health")

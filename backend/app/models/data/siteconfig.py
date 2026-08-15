@@ -1,5 +1,5 @@
 from typing import Optional, Literal
-from sqlalchemy import Column, Integer, String, Text, Boolean
+from sqlalchemy import Column, Integer, String, Text, Boolean, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Enum as SQLEnum
 from app.database import Base
@@ -60,6 +60,13 @@ class SiteConfig(Base):
         nullable=True,
         comment='文章审核通知接收角色，JSON数组格式，如["Admin","Editor"]'
     )
+
+    # OAuth 社交登录配置
+    oauth_enabled: Mapped[int] = mapped_column(Integer, default=0, comment='是否启用社交登录，0=禁用，1=启用')
+    enabled_oauth_providers: Mapped[Optional[list]] = mapped_column(JSON, default=list, comment='启用的 OAuth provider 列表，如["github","gitee"]')
+
+    # 内容安全配置
+    sensitive_words_enabled: Mapped[int] = mapped_column(Integer, default=0, comment='是否启用敏感词过滤，0=关闭，1=启用')
 
     @property
     def footer_config(self):

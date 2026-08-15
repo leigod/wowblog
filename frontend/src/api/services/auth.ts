@@ -101,20 +101,15 @@ export const frontLogoutApi = () => {
 }
 
 /**
- * OAuth 社交登录跳转
+ * OAuth 回调后换取 access_token
+ *
+ * 后端在 OAuth 回调成功时把 access_token 写入 httpOnly 短期 cookie（oauth_token），
+ * 前端调本接口（依赖 axios withCredentials 携带 cookie）一次性取出 token，后端随即删除 cookie。
+ * 前端拿到后存入 localStorage，走与普通登录一致的后续流程。
  */
-export const oauthLoginApi = (provider: string) => {
-  // 返回授权URL，前端跳转
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin
-  return `${baseUrl}/api/auth/oauth/${provider}`
-}
-
-/**
- * OAuth 回调处理
- */
-export const oauthCallbackApi = (provider: string, code: string, state?: string) => {
-  return request<ApiResponse<TokenResponse>>({
-    url: `/auth/callback/${provider}?code=${code}${state ? `&state=${state}` : ''}`,
+export const exchangeOAuthToken = () => {
+  return request<ApiResponse<{ access_token: string; token_type: string }>>({
+    url: '/auth/oauth/session',
     method: 'GET'
   })
 }

@@ -371,7 +371,7 @@ const messageForm = ref<{
 const newRole = ref<'Admin' | 'Editor' | 'Author' | 'Contributor' | 'User'>('User')
 const sendingMessage = ref(false)
 
-const defaultAvatar = '/src/assets/avatar.png'
+const defaultAvatar = '/avatar.png'
 const currentUserId = computed(() => appStore.userInfo?.id)
 
 // 角色名称映射

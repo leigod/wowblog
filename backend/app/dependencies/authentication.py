@@ -45,9 +45,9 @@ if not SECRET_KEY:
             "Please set it in your .env file or environment."
         )
     else:
-        # 开发环境生成临时随机密钥(每次启动变化,仅用于本地开发,不含任何固定值)
-        SECRET_KEY = secrets.token_hex(32)
-        logger.warning("未配置 JWT_SECRET_KEY,已生成临时开发密钥;生产环境必须设置该环境变量")
+        # 开发环境使用固定密钥（仅用于开发，不应在生产使用）
+        SECRET_KEY = "82ec214f233eaaa28f0296fa739dc3c1cdb6debac204f01dc21e1441f0fcfb78"
+        logger.warning("使用开发环境JWT密钥，生产环境必须设置JWT_SECRET_KEY环境变量")
 
 ALGORITHM = "HS256"
 
@@ -148,7 +148,7 @@ async def get_optional_user_id(token: Optional[str] = Depends(oauth2_scheme),db:
 async def get_current_active_user(
         current_user: Annotated[schemas.User, Depends(get_current_user)],
 ):
-    if current_user.status == "hidden":
+    if current_user.status == "block":
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
@@ -156,7 +156,7 @@ async def get_current_active_user(
 async def get_current_active_admin_user(
         current_user: Annotated[schemas.User, Depends(get_current_user)],
 ):
-    if current_user.status == "hidden":
+    if current_user.status == "block":
         raise HTTPException(status_code=400, detail="Inactive user")
     if current_user.role != "Admin":
         raise HTTPException(status_code=400, detail="您没有权限访问！")
@@ -222,7 +222,7 @@ async def get_current_admin_user(
     current_user: Annotated[schemas.User, Depends(get_current_user)],
 ):
     """获取管理员用户（仅 Admin 可访问）"""
-    if current_user.status == "hidden":
+    if current_user.status == "block":
         raise HTTPException(status_code=403, detail="用户已被禁用")
     if current_user.role != "Admin":
         raise HTTPException(status_code=403, detail="仅管理员可访问")
@@ -233,7 +233,7 @@ async def get_current_editor_user(
     current_user: Annotated[schemas.User, Depends(get_current_user)],
 ):
     """获取编辑用户（Admin 和 Editor 可访问）"""
-    if current_user.status == "hidden":
+    if current_user.status == "block":
         raise HTTPException(status_code=403, detail="用户已被禁用")
     if not is_admin_or_editor(current_user.role):
         raise HTTPException(status_code=403, detail="仅编辑和管理员可访问")
@@ -244,7 +244,7 @@ async def get_current_author_user(
     current_user: Annotated[schemas.User, Depends(get_current_user)],
 ):
     """获取作者用户（Admin、Editor 和 Author 可访问）"""
-    if current_user.status == "hidden":
+    if current_user.status == "block":
         raise HTTPException(status_code=403, detail="用户已被禁用")
     if not is_admin_editor_or_author(current_user.role):
         raise HTTPException(status_code=403, detail="仅作者、编辑和管理员可访问")
@@ -255,7 +255,7 @@ async def get_current_content_creator(
     current_user: Annotated[schemas.User, Depends(get_current_user)],
 ):
     """获取内容创建者（Admin、Editor、Author 和 Contributor 可访问）"""
-    if current_user.status == "hidden":
+    if current_user.status == "block":
         raise HTTPException(status_code=403, detail="用户已被禁用")
     if not is_content_creator(current_user.role):
         raise HTTPException(status_code=403, detail="仅内容创建者可访问")
@@ -265,7 +265,7 @@ async def get_current_content_creator(
 async def require_permission(permission: Permission):
     """检查用户是否拥有指定权限的依赖工厂函数"""
     async def permission_check(current_user: Annotated[schemas.User, Depends(get_current_user)]) -> schemas.User:
-        if current_user.status == "hidden":
+        if current_user.status == "block":
             raise HTTPException(status_code=403, detail="用户已被禁用")
         if not has_permission(current_user.role, permission):
             raise HTTPException(status_code=403, detail=f"需要 {permission.value} 权限")
@@ -276,7 +276,7 @@ async def require_permission(permission: Permission):
 async def require_any_permission(*permissions: Permission):
     """检查用户是否拥有任一指定权限的依赖工厂函数"""
     async def permission_check(current_user: Annotated[schemas.User, Depends(get_current_user)]) -> schemas.User:
-        if current_user.status == "hidden":
+        if current_user.status == "block":
             raise HTTPException(status_code=403, detail="用户已被禁用")
         if not has_any_permission(current_user.role, list(permissions)):
             perm_names = [p.value for p in permissions]

@@ -5,221 +5,273 @@
       <p>{{ $t('admin.comment.list.subtitle') }}</p>
     </div>
 
-    <!-- 统计卡片 -->
-    <div class="statistics-cards">
-      <div class="stat-card">
-        <div class="stat-icon total">
-          <IconifyIcon icon="lucide:message-square" />
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ statistics.total_comments }}</div>
-          <div class="stat-label">{{ $t('admin.comment.stats.total') }}</div>
-        </div>
-      </div>
-      <div class="stat-card" :class="{ warning: statistics.pending_audit > 0 }">
-        <div class="stat-icon pending">
-          <IconifyIcon icon="lucide:clock" />
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ statistics.pending_audit }}</div>
-          <div class="stat-label">{{ $t('admin.comment.stats.pending') }}</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon today">
-          <IconifyIcon icon="lucide:calendar" />
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ statistics.today_comments }}</div>
-          <div class="stat-label">{{ $t('admin.comment.stats.today') }}</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon week">
-          <IconifyIcon icon="lucide:trending-up" />
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ statistics.week_comments }}</div>
-          <div class="stat-label">{{ $t('admin.comment.stats.week') }}</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon hidden">
-          <IconifyIcon icon="lucide:eye-off" />
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ statistics.hidden_comments }}</div>
-          <div class="stat-label">{{ $t('admin.comment.stats.hidden') }}</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon sensitive">
-          <IconifyIcon icon="lucide:alert-triangle" />
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ statistics.sensitive_detected }}</div>
-          <div class="stat-label">{{ $t('admin.comment.stats.sensitive') }}</div>
-        </div>
-      </div>
+    <!-- 视图切换：评论列表 / 敏感词库 -->
+    <div class="view-switch">
+      <el-radio-group v-model="viewMode">
+        <el-radio-button value="comments">{{ $t('admin.comment.view.comments') }}</el-radio-button>
+        <el-radio-button value="words">{{ $t('admin.comment.view.words') }}</el-radio-button>
+        <el-radio-button value="blacklist">{{ $t('admin.comment.view.blacklist') }}</el-radio-button>
+      </el-radio-group>
     </div>
 
-    <!-- 状态标签页 -->
-    <el-tabs v-model="activeStatus" class="status-tabs" @tab-click="handleStatusChange">
-      <el-tab-pane :label="$t('admin.comment.tabs.all') + ` (${totalCount.all})`" name="all" />
-      <el-tab-pane :label="$t('admin.comment.tabs.normal') + ` (${totalCount.normal})`" name="normal" />
-      <el-tab-pane :label="$t('admin.comment.tabs.hidden') + ` (${totalCount.hidden})`" name="hidden" />
-      <el-tab-pane :label="$t('admin.comment.tabs.pending') + ` (${totalCount.pending})`" name="pending" />
-      <el-tab-pane :label="$t('admin.comment.tabs.approved') + ` (${totalCount.approved})`" name="approved" />
-      <el-tab-pane :label="$t('admin.comment.tabs.rejected') + ` (${totalCount.rejected})`" name="rejected" />
-    </el-tabs>
+    <div v-show="viewMode === 'comments'">
+      <!-- 统计卡片 -->
+      <div class="statistics-cards">
+        <div class="stat-card">
+          <div class="stat-icon total">
+            <IconifyIcon icon="lucide:message-square" />
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ statistics.total_comments }}</div>
+            <div class="stat-label">{{ $t('admin.comment.stats.total') }}</div>
+          </div>
+        </div>
+        <div class="stat-card" :class="{ warning: statistics.pending_audit > 0 }">
+          <div class="stat-icon pending">
+            <IconifyIcon icon="lucide:clock" />
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ statistics.pending_audit }}</div>
+            <div class="stat-label">{{ $t('admin.comment.stats.pending') }}</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon today">
+            <IconifyIcon icon="lucide:calendar" />
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ statistics.today_comments }}</div>
+            <div class="stat-label">{{ $t('admin.comment.stats.today') }}</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon week">
+            <IconifyIcon icon="lucide:trending-up" />
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ statistics.week_comments }}</div>
+            <div class="stat-label">{{ $t('admin.comment.stats.week') }}</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon hidden">
+            <IconifyIcon icon="lucide:eye-off" />
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ statistics.hidden_comments }}</div>
+            <div class="stat-label">{{ $t('admin.comment.stats.hidden') }}</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon sensitive">
+            <IconifyIcon icon="lucide:alert-triangle" />
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ statistics.sensitive_detected }}</div>
+            <div class="stat-label">{{ $t('admin.comment.stats.sensitive') }}</div>
+          </div>
+        </div>
+      </div>
 
-    <!-- 搜索和筛选 -->
-    <div class="search-filter">
-      <el-input v-model="searchKeyword" :placeholder="$t('admin.comment.list.search_placeholder')" prefix-icon="Search"
-        class="search-input" @input="handleSearch" />
-      <el-button icon="Filter" @click="showFilterDialog = true">
-        {{ $t('admin.comment.list.filter') }}
-      </el-button>
-      <el-dropdown @command="handleBatchAction" v-if="selectedComments.length > 0">
-        <el-button type="primary">
-          {{ $t('admin.comment.list.batch_action') }} ({{ selectedComments.length }})
-          <IconifyIcon icon="lucide:chevron-down" style="margin-left: 4px" />
+      <!-- 状态标签页 -->
+      <el-tabs v-model="activeStatus" class="status-tabs" @tab-click="handleStatusChange">
+        <el-tab-pane :label="$t('admin.comment.tabs.all') + ` (${totalCount.all})`" name="all" />
+        <el-tab-pane :label="$t('admin.comment.tabs.normal') + ` (${totalCount.normal})`" name="normal" />
+        <el-tab-pane :label="$t('admin.comment.tabs.hidden') + ` (${totalCount.hidden})`" name="hidden" />
+        <el-tab-pane :label="$t('admin.comment.tabs.pending') + ` (${totalCount.pending})`" name="pending" />
+        <el-tab-pane :label="$t('admin.comment.tabs.approved') + ` (${totalCount.approved})`" name="approved" />
+        <el-tab-pane :label="$t('admin.comment.tabs.rejected') + ` (${totalCount.rejected})`" name="rejected" />
+      </el-tabs>
+
+      <!-- 搜索和筛选 -->
+      <div class="search-filter">
+        <el-input v-model="searchKeyword" :placeholder="$t('admin.comment.list.search_placeholder')"
+          prefix-icon="Search" class="search-input" @input="handleSearch" />
+        <el-button icon="Filter" @click="showFilterDialog = true">
+          {{ $t('admin.comment.list.filter') }}
         </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="approve">
-              <IconifyIcon icon="lucide:check" /> {{ $t('admin.comment.actions.approve') }}
-            </el-dropdown-item>
-            <el-dropdown-item command="reject">
-              <IconifyIcon icon="lucide:x" /> {{ $t('admin.comment.actions.reject') }}
-            </el-dropdown-item>
-            <el-dropdown-item command="show">
-              <IconifyIcon icon="lucide:eye" /> {{ $t('admin.comment.actions.show') }}
-            </el-dropdown-item>
-            <el-dropdown-item command="hide">
-              <IconifyIcon icon="lucide:eye-off" /> {{ $t('admin.comment.actions.hide') }}
-            </el-dropdown-item>
-            <el-dropdown-item command="delete" divided>
-              <IconifyIcon icon="lucide:trash-2" /> {{ $t('admin.comment.actions.delete') }}
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
+        <el-dropdown @command="handleBatchAction" v-if="selectedComments.length > 0">
+          <el-button type="primary">
+            {{ $t('admin.comment.list.batch_action') }} ({{ selectedComments.length }})
+            <IconifyIcon icon="lucide:chevron-down" style="margin-left: 4px" />
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="approve">
+                <IconifyIcon icon="lucide:check" /> {{ $t('admin.comment.actions.approve') }}
+              </el-dropdown-item>
+              <el-dropdown-item command="reject">
+                <IconifyIcon icon="lucide:x" /> {{ $t('admin.comment.actions.reject') }}
+              </el-dropdown-item>
+              <el-dropdown-item command="show">
+                <IconifyIcon icon="lucide:eye" /> {{ $t('admin.comment.actions.show') }}
+              </el-dropdown-item>
+              <el-dropdown-item command="hide">
+                <IconifyIcon icon="lucide:eye-off" /> {{ $t('admin.comment.actions.hide') }}
+              </el-dropdown-item>
+              <el-dropdown-item command="delete" divided>
+                <IconifyIcon icon="lucide:trash-2" /> {{ $t('admin.comment.actions.delete') }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
 
-    <!-- 评论列表 -->
-    <div class="comment-list" v-loading="loading">
-      <el-empty v-if="commentList.length === 0 && !loading" :description="$t('admin.comment.list.empty')" />
+      <!-- 评论列表 -->
+      <div class="comment-list" v-loading="loading">
+        <el-empty v-if="commentList.length === 0 && !loading" :description="$t('admin.comment.list.empty')" />
 
-      <div v-for="comment in commentList" :key="comment.id" class="comment-item">
-        <div class="comment-checkbox">
-          <el-checkbox v-model="selectedComments" :label="comment.id" />
-        </div>
-
-        <div class="comment-avatar">
-          <el-avatar :src="comment.user_avatar" :size="40">
-            {{ comment.username?.charAt(0)?.toUpperCase() }}
-          </el-avatar>
-        </div>
-
-        <div class="comment-content-wrapper">
-          <div class="comment-header">
-            <span class="comment-username">{{ comment.username }}</span>
-            <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
-            <el-tag v-if="comment.status === 'hidden'" type="info" size="small">
-              {{ $t('admin.comment.status.hidden') }}
-            </el-tag>
-            <el-tag v-if="comment.audit_status === 'pending'" type="warning" size="small">
-              {{ $t('admin.comment.status.pending') }}
-            </el-tag>
-            <el-tag v-if="comment.audit_status === 'rejected'" type="danger" size="small">
-              {{ $t('admin.comment.status.rejected') }}
-            </el-tag>
-            <el-tag v-if="comment.sensitive_words" type="danger" size="small">
-              {{ $t('admin.comment.status.sensitive') }}
-            </el-tag>
+        <div v-for="comment in commentList" :key="comment.id" class="comment-item">
+          <div class="comment-checkbox">
+            <!-- 多选必须包在 el-checkbox-group 内：单独 el-checkbox 的 v-model
+                 不接受数组（正是此前控制台 "Expected Number|String|Boolean,
+                 got Array" 警告的来源） -->
+            <el-checkbox-group v-model="selectedComments">
+              <el-checkbox :value="comment.id" />
+            </el-checkbox-group>
           </div>
 
-          <div class="comment-text" v-html="comment.comment"></div>
-
-          <div class="comment-meta" v-if="comment.article_title">
-            <router-link :to="`/article/${comment.article_slug}`" class="article-link" target="_blank">
-              {{ $t('admin.comment.list.article') }}: {{ comment.article_title }}
-            </router-link>
+          <div class="comment-avatar">
+            <el-avatar :src="comment.user_avatar" :size="40">
+              {{ comment.username?.charAt(0)?.toUpperCase() }}
+            </el-avatar>
           </div>
 
-          <div class="comment-stats">
-            <span>
-              <IconifyIcon icon="lucide:heart" size="14" /> {{ comment.likes }}
-            </span>
-            <span>
-              <IconifyIcon icon="lucide:message-circle" size="14" /> {{ comment.replys }}
-            </span>
-            <span v-if="comment.ip">
-              <IconifyIcon icon="lucide:globe" size="14" /> {{ comment.ip }}
-            </span>
-          </div>
-        </div>
+          <div class="comment-content-wrapper">
+            <div class="comment-header">
+              <span class="comment-username">{{ comment.username }}</span>
+              <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
+              <el-tag v-if="comment.status === 'hidden'" type="info" size="small">
+                {{ $t('admin.comment.status.hidden') }}
+              </el-tag>
+              <el-tag v-if="comment.audit_status === 'pending'" type="warning" size="small">
+                {{ $t('admin.comment.status.pending') }}
+              </el-tag>
+              <el-tag v-if="comment.audit_status === 'rejected'" type="danger" size="small">
+                {{ $t('admin.comment.status.rejected') }}
+              </el-tag>
+              <el-tag v-if="comment.sensitive_words" type="danger" size="small">
+                {{ $t('admin.comment.status.sensitive') }}
+              </el-tag>
+            </div>
 
-        <div class="comment-actions">
-          <el-dropdown @command="onCommentAction(comment)">
-            <el-button text>
-              <IconifyIcon icon="lucide:more-horizontal" />
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="approve" v-if="comment.audit_status === 'pending'">
-                  <IconifyIcon icon="lucide:check" /> {{ $t('admin.comment.actions.approve') }}
-                </el-dropdown-item>
-                <el-dropdown-item command="reject" v-if="comment.audit_status === 'pending'">
-                  <IconifyIcon icon="lucide:x" /> {{ $t('admin.comment.actions.reject') }}
-                </el-dropdown-item>
-                <el-dropdown-item command="show" v-if="comment.status === 'hidden'">
-                  <IconifyIcon icon="lucide:eye" /> {{ $t('admin.comment.actions.show') }}
-                </el-dropdown-item>
-                <el-dropdown-item command="hide" v-if="comment.status === 'normal'">
-                  <IconifyIcon icon="lucide:eye-off" /> {{ $t('admin.comment.actions.hide') }}
-                </el-dropdown-item>
-                <el-dropdown-item command="delete" divided>
-                  <IconifyIcon icon="lucide:trash-2" /> {{ $t('admin.comment.actions.delete') }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+            <div class="comment-text" v-html="comment.comment"></div>
+
+            <div class="comment-meta" v-if="comment.article_title">
+              <router-link :to="`/article/${comment.article_slug}`" class="article-link" target="_blank">
+                {{ $t('admin.comment.list.article') }}: {{ comment.article_title }}
+              </router-link>
+            </div>
+
+            <div class="comment-stats">
+              <span>
+                <IconifyIcon icon="lucide:heart" size="14" /> {{ comment.likes }}
+              </span>
+              <span>
+                <IconifyIcon icon="lucide:message-circle" size="14" /> {{ comment.replys }}
+              </span>
+              <span v-if="comment.ip">
+                <IconifyIcon icon="lucide:globe" size="14" /> {{ comment.ip }}
+              </span>
+            </div>
+          </div>
+
+          <div class="comment-actions">
+            <el-dropdown @command="handleCommentAction($event, comment)">
+              <el-button text>
+                <IconifyIcon icon="lucide:more-horizontal" />
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="approve" v-if="comment.audit_status === 'pending'">
+                    <IconifyIcon icon="lucide:check" /> {{ $t('admin.comment.actions.approve') }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="reject" v-if="comment.audit_status === 'pending'">
+                    <IconifyIcon icon="lucide:x" /> {{ $t('admin.comment.actions.reject') }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="show" v-if="comment.status === 'hidden'">
+                    <IconifyIcon icon="lucide:eye" /> {{ $t('admin.comment.actions.show') }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="hide" v-if="comment.status === 'normal'">
+                    <IconifyIcon icon="lucide:eye-off" /> {{ $t('admin.comment.actions.hide') }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="ban" divided>
+                    <IconifyIcon icon="lucide:user-x" /> {{ $t('admin.comment.actions.ban') }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="delete">
+                    <IconifyIcon icon="lucide:trash-2" /> {{ $t('admin.comment.actions.delete') }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </div>
       </div>
+
+      <!-- 分页 -->
+      <div class="pagination-wrapper" v-if="total > 0">
+        <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :total="total"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
+          @current-change="handlePageChange" @size-change="handleSizeChange" />
+      </div>
+
+      <!-- 筛选对话框 -->
+      <el-dialog v-model="showFilterDialog" :title="$t('admin.comment.list.filter_comments')"
+        :width="isMobile ? '90%' : '500px'" :label-position="isMobile ? 'top' : 'right'">
+        <el-form :label-width="isMobile ? '80px' : '100px'" :inline="false">
+          <el-form-item :label="$t('admin.comment.filter.date_range')" :label-position="isMobile ? 'top' : 'left'">
+            <el-date-picker v-model="filterDateRange" type="daterange" range-separator="to"
+              popper-class="mobile_datepicker" :start-placeholder="$t('admin.comment.filter.start_date')"
+              :end-placeholder="$t('admin.comment.filter.end_date')" value-format="YYYY-MM-DD" style="width: 100%" />
+          </el-form-item>
+          <el-form-item :label="$t('admin.comment.filter.audit_status')" :label-position="isMobile ? 'top' : 'left'">
+            <el-select v-model="filterAuditStatus" :placeholder="$t('admin.comment.filter.select_status')" clearable
+              style="width: 100%">
+              <el-option :label="$t('admin.comment.tabs.pending')" value="pending" />
+              <el-option :label="$t('admin.comment.tabs.approved')" value="approved" />
+              <el-option :label="$t('admin.comment.tabs.rejected')" value="rejected" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="resetFilters">{{ $t('admin.general.btn.reset') }}</el-button>
+          <el-button type="primary" @click="applyFilters">{{ $t('admin.general.btn.apply') }}</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 禁评该用户对话框 -->
+      <el-dialog v-model="showBanDialog" :title="$t('admin.comment.ban.title')" width="460px">
+        <p class="ban-user-hint">
+          {{ $t('admin.comment.ban.target') }}: {{ banTarget?.username || banTarget?.user_id }}
+        </p>
+        <el-form label-width="80px">
+          <el-form-item :label="$t('admin.comment.ban.reason')">
+            <el-input v-model="banForm.reason" type="textarea" :rows="3" maxlength="200"
+              :placeholder="$t('admin.comment.ban.reason_placeholder')" />
+          </el-form-item>
+          <el-form-item :label="$t('admin.comment.ban.duration')">
+            <el-select v-model="banForm.days" style="width: 100%">
+              <el-option :label="$t('admin.comment.ban.forever')" :value="0" />
+              <el-option :label="$t('admin.comment.ban.days7')" :value="7" />
+              <el-option :label="$t('admin.comment.ban.days30')" :value="30" />
+              <el-option :label="$t('admin.comment.ban.days90')" :value="90" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showBanDialog = false">{{ $t('admin.comment.words.cancel') }}</el-button>
+          <el-button type="danger" :loading="banSubmitting" @click="handleBanSubmit">
+            {{ $t('admin.comment.ban.confirm') }}
+          </el-button>
+        </template>
+      </el-dialog>
     </div>
 
-    <!-- 分页 -->
-    <div class="pagination-wrapper" v-if="total > 0">
-      <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :total="total"
-        :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper"
-        @current-change="handlePageChange" @size-change="handleSizeChange" />
-    </div>
+    <!-- 敏感词库管理 -->
+    <SensitiveWordsPanel v-if="viewMode === 'words'" />
 
-    <!-- 筛选对话框 -->
-    <el-dialog v-model="showFilterDialog" :title="$t('admin.comment.list.filter_comments')"
-      :width="isMobile ? '90%' : '500px'" :label-position="isMobile ? 'top' : 'right'">
-      <el-form :label-width="isMobile ? '80px' : '100px'" :inline="false">
-        <el-form-item :label="$t('admin.comment.filter.date_range')" :label-position="isMobile ? 'top' : 'left'">
-          <el-date-picker v-model="filterDateRange" type="daterange" range-separator="to"
-            popper-class="mobile_datepicker" :start-placeholder="$t('admin.comment.filter.start_date')"
-            :end-placeholder="$t('admin.comment.filter.end_date')" value-format="YYYY-MM-DD" style="width: 100%" />
-        </el-form-item>
-        <el-form-item :label="$t('admin.comment.filter.audit_status')" :label-position="isMobile ? 'top' : 'left'">
-          <el-select v-model="filterAuditStatus" :placeholder="$t('admin.comment.filter.select_status')" clearable
-            style="width: 100%">
-            <el-option :label="$t('admin.comment.tabs.pending')" value="pending" />
-            <el-option :label="$t('admin.comment.tabs.approved')" value="approved" />
-            <el-option :label="$t('admin.comment.tabs.rejected')" value="rejected" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="resetFilters">{{ $t('admin.general.btn.reset') }}</el-button>
-        <el-button type="primary" @click="applyFilters">{{ $t('admin.general.btn.apply') }}</el-button>
-      </template>
-    </el-dialog>
+    <!-- 禁评黑名单管理 -->
+    <BlacklistPanel v-if="viewMode === 'blacklist'" />
   </div>
 </template>
 
@@ -234,14 +286,53 @@ import {
   updateCommentAudit,
   batchOperation,
   getCommentStatistics,
+  createBlacklist,
   type CommentListItem,
   type CommentStatisticsData,
   type CommentListResponse,
   type CommentStatisticsResponse
 } from '@/api/services/commentAdmin'
+import SensitiveWordsPanel from '@/components/SensitiveWordsPanel.vue'
+import BlacklistPanel from '@/components/BlacklistPanel.vue'
 
 // 移动端检测
 const { isMobile } = useMobileDetection()
+
+// 视图切换：评论列表 / 敏感词库 / 黑名单
+const viewMode = ref<'comments' | 'words' | 'blacklist'>('comments')
+
+// ===== 一键禁评（评论操作下拉 → ban）=====
+const showBanDialog = ref(false)
+const banSubmitting = ref(false)
+const banTarget = ref<CommentListItem | null>(null)
+const banForm = reactive({ reason: '', days: 0 })
+
+const handleBanSubmit = async () => {
+  if (!banTarget.value) return
+  banSubmitting.value = true
+  try {
+    const expire_at = banForm.days > 0
+      ? Math.floor(Date.now() / 1000) + banForm.days * 86400
+      : undefined
+    const res = await createBlacklist({
+      user_id: banTarget.value.user_id,
+      type: 'comment',
+      reason: banForm.reason.trim() || undefined,
+      expire_at
+    })
+    if (res && res.code === 1) {
+      ElMessage.success('已加入禁评名单')
+      showBanDialog.value = false
+    } else {
+      ElMessage.error(res?.msg || '操作失败')
+    }
+  } catch (error: any) {
+    const detail = error?.response?.data?.detail
+    ElMessage.error(detail || error?.response?.data?.msg || '操作失败')
+  } finally {
+    banSubmitting.value = false
+  }
+}
 
 // 状态管理
 const loading = ref(false)
@@ -390,6 +481,9 @@ const resetFilters = () => {
 }
 
 // 处理单个评论操作
+// 注意：模板中必须用内联箭头 @command="(cmd) => handleCommentAction(cmd, comment)" 转发；
+// 原写法 @command="onCommentAction(comment)" 是内联调用，返回的包装函数被 Vue 丢弃，
+// 导致整个操作菜单（含原有的审核/显隐/删除）点击后毫无反应。
 const handleCommentAction = async (action: string, comment: CommentListItem) => {
   try {
     if (action === 'approve') {
@@ -404,6 +498,13 @@ const handleCommentAction = async (action: string, comment: CommentListItem) => 
     } else if (action === 'hide') {
       await updateCommentStatus(comment.id, { status: 'hidden' })
       ElMessage.success('已隐藏')
+    } else if (action === 'ban') {
+      // 打开"禁评该用户"对话框（提交后才真正拉黑）
+      banTarget.value = comment
+      banForm.reason = ''
+      banForm.days = 0
+      showBanDialog.value = true
+      return
     } else if (action === 'delete') {
       await ElMessageBox.confirm('确认删除此评论？', '提示', {
         confirmButtonText: '确认',
@@ -422,11 +523,6 @@ const handleCommentAction = async (action: string, comment: CommentListItem) => 
       ElMessage.error(error?.response?.data?.msg || '操作失败')
     }
   }
-}
-
-// 为模板中的下拉菜单事件创建包装函数
-const onCommentAction = (comment: CommentListItem) => {
-  return (cmd: string) => handleCommentAction(cmd, comment)
 }
 
 // 处理批量操作
@@ -517,6 +613,7 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
+  margin-top: 20px;
 }
 
 .stat-card {

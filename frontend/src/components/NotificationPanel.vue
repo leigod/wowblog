@@ -37,7 +37,7 @@
       <div v-for="item in notifications" :key="item.id" class="notification-item" :class="{ unread: !item.is_read }"
         @click="handleNotificationClick(item)">
         <!-- 触发者头像 -->
-        <el-avatar :size="40" :src="item.actor_avatar || '/src/assets/avatar.png'" class="actor-avatar" />
+        <el-avatar :size="40" :src="item.actor_avatar || '/avatar.png'" class="actor-avatar" />
 
         <!-- 通知内容 -->
         <div class="notification-content">

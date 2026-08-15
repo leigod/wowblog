@@ -168,7 +168,7 @@
                 <div style="display: flex; align-items: center; width: 50px; border-radius: 50%">
                   <img
                     :src="
-                      authorInfo.profile_image ? authorInfo.profile_image : '/src/assets/avatar.png'
+                      authorInfo.profile_image ? authorInfo.profile_image : '/avatar.png'
                     "
                     alt="Author Avatar"
                     class="author-avatar"
@@ -233,7 +233,7 @@
                         style="display: flex; align-items: center; width: 40px; border-radius: 50%"
                       >
                         <img
-                          :src="item.profile_image ? item.profile_image : '/src/assets/avatar.png'"
+                          :src="item.profile_image ? item.profile_image : '/avatar.png'"
                           alt="Author Avatar"
                           class="author-avatar"
                           style="width: 40px; height: 40px; border-radius: 50%"
@@ -304,7 +304,7 @@
               >
                 <div style="display: flex; align-items: center; width: 40px; border-radius: 50%">
                   <img
-                    :src="author.profile_image ? author.profile_image : '/src/assets/avatar.png'"
+                    :src="author.profile_image ? author.profile_image : '/avatar.png'"
                     alt="Author Avatar"
                     class="author-avatar"
                     style="width: 40px; height: 40px; border-radius: 50%"
@@ -373,7 +373,7 @@
                         style="display: flex; align-items: center; width: 40px; border-radius: 50%"
                       >
                         <img
-                          :src="item.profile_image ? item.profile_image : '/src/assets/avatar.png'"
+                          :src="item.profile_image ? item.profile_image : '/avatar.png'"
                           alt="Author Avatar"
                           class="author-avatar"
                           style="width: 40px; height: 40px; border-radius: 50%"

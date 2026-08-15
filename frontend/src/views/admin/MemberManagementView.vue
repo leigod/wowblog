@@ -633,7 +633,7 @@ const loadMemberList = async () => {
           name: item.full_name,
           username: item.username,
           email: item.email,
-          avatar: item.profile_image ? item.profile_image : '/src/assets/avatar.png',
+          avatar: item.profile_image ? item.profile_image : '/avatar.png',
           role: roleName,
           status:
             item.status === 'normal'

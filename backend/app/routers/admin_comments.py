@@ -1,7 +1,8 @@
 """
 管理后台评论管理 API 路由
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import time
@@ -278,6 +279,9 @@ async def create_sensitive_word(
         created_by=current_user.id,
     )
 
+    if not word:
+        raise HTTPException(status_code=409, detail='该敏感词已存在')
+
     return success(msg='创建成功', data={'id': word.id})
 
 
@@ -322,6 +326,64 @@ async def delete_sensitive_word(
         raise HTTPException(status_code=404, detail='敏感词不存在')
 
     return success(msg='删除成功')
+
+
+@router.post('/sensitive-words/import')
+async def import_sensitive_words(
+    data: schemas.SensitiveWordsImport,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    批量导入敏感词（纯文本，一行一条）：
+      词 / 词=>替换词 / 词@@review，# 开头为注释行
+    """
+    if current_user.role != 'Admin':
+        raise HTTPException(status_code=403, detail='仅管理员可操作')
+
+    items = []
+    for line in (data.content or '').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if line.endswith('@@review'):
+            items.append(schemas.SensitiveWordCreate(
+                word=line[:-len('@@review')].strip(), type='review', category=data.category))
+        elif '=>' in line:
+            word, _, repl = line.partition('=>')
+            items.append(schemas.SensitiveWordCreate(
+                word=word.strip(), type='replace',
+                replacement=repl.strip() or None, category=data.category))
+        else:
+            items.append(schemas.SensitiveWordCreate(
+                word=line, type='banned', category=data.category))
+
+    added, skipped = await crud.batch_import_sensitive_words(
+        db=db, items=items, created_by=current_user.id,
+    )
+    return success(msg='导入完成', data={'added': added, 'skipped': skipped})
+
+
+@router.get('/sensitive-words/export')
+async def export_sensitive_words(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """导出全部敏感词为纯文本（与导入格式对称）"""
+    if current_user.role != 'Admin':
+        raise HTTPException(status_code=403, detail='仅管理员可访问')
+
+    words = await crud.get_all_sensitive_words(db)
+    lines = []
+    for w in words:
+        if w.type == 'replace' and w.replacement:
+            lines.append(f'{w.word}=>{w.replacement}')
+        elif w.type == 'review':
+            lines.append(f'{w.word}@@review')
+        else:
+            lines.append(w.word or '')
+    content = '\n'.join(lines) + ('\n' if lines else '')
+    return Response(content=content, media_type='text/plain; charset=utf-8')
 
 
 # ==================== 黑名单管理 ====================
@@ -376,15 +438,20 @@ async def create_blacklist(
         admin_id=current_user.id,
     )
 
+    if not bl:
+        raise HTTPException(status_code=409, detail='该用户已在禁评名单中')
+
     return success(msg='创建成功', data={'id': bl.id})
 
 
 @router.post('/blacklist/{blacklist_id}/update')
 async def update_blacklist(
     blacklist_id: int,
-    status: Optional[str] = None,
-    expire_at: Optional[int] = None,
-    note: Optional[str] = None,
+    # 必须显式声明为 Body 参数：裸标量默认从 query 取，
+    # 前端发 JSON body 会收不到（status 恒为 None → 走"不更新"分支却返回成功）
+    status: Optional[str] = Body(None),
+    expire_at: Optional[int] = Body(None),
+    note: Optional[str] = Body(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -425,51 +492,3 @@ async def delete_blacklist(
 
     return success(msg='删除成功')
 
-
-# ==================== 系统设置 ====================
-
-@router.get('/settings')
-async def get_settings(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """获取评论相关设置"""
-    # 检查权限
-    if current_user.role not in ['Admin', 'Editor']:
-        raise HTTPException(status_code=403, detail='无权访问')
-
-    audit_enabled = await crud.get_comment_audit_enabled(db)
-
-    return success(
-        msg='获取成功',
-        data={
-            'comment_audit_enabled': audit_enabled,
-        }
-    )
-
-
-@router.post('/settings/update')
-async def update_settings(
-    key: str,
-    value: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """更新系统设置"""
-    # 检查权限
-    if current_user.role != 'Admin':
-        raise HTTPException(status_code=403, detail='仅管理员可操作')
-
-    # 限制可更新的设置项
-    allowed_keys = ['comment_audit_enabled', 'comment_auto_audit']
-    if key not in allowed_keys:
-        raise HTTPException(status_code=400, detail='不允许修改此设置项')
-
-    setting = await crud.update_system_setting(
-        db=db,
-        key=key,
-        value=value,
-        updated_by=current_user.id,
-    )
-
-    return success(msg='设置已更新')

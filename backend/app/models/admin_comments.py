@@ -67,18 +67,6 @@ class CommentAuditLog(Base):
     )
 
 
-class SystemSetting(Base):
-    """系统设置表"""
-    __tablename__ = 'wb_system_settings'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    key = Column(String(100), unique=True, nullable=False, comment='设置键')
-    value = Column(Text, comment='设置值')
-    type = Column(String(20), default='string', comment='类型: string/boolean/number/json')
-    description = Column(String(200), comment='描述')
-    updated_at = Column(Integer, default=0, comment='更新时间')
-    updated_by = Column(Integer, comment='更新人ID')
-    
-    __table_args__ = (
-        Index('idx_key', 'key'),
-    )
+# 注：原 SystemSetting（wb_system_settings）已删除——与 wb_config（SiteConfig）重复。
+# 评论相关配置（如审核开关）请加到 wb_config。
+# 敏感词(SensitiveWord)/黑名单(Blacklist)/评论审计日志(CommentAuditLog) 3 个 model 保留为待开发功能。

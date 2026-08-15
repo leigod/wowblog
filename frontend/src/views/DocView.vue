@@ -129,7 +129,7 @@
             <!-- 评论表单 -->
             <div v-if="showCommentForm" class="comment-form">
               <div class="comment-user-info">
-                <el-avatar :size="32" :src="appStore.userInfo?.profile_image || '/src/assets/avatar.png'" />
+                <el-avatar :size="32" :src="appStore.userInfo?.profile_image || '/avatar.png'" />
                 <span>{{ appStore.userInfo?.username || 'Anonymous' }}</span>
               </div>
               <el-input
@@ -173,7 +173,7 @@
 
               <!-- 评论项 -->
               <div v-for="item in commentsList" :key="item.id" class="comment-item">
-                <el-avatar :size="40" :src="item.profile_image || '/src/assets/avatar.png'" class="comment-avatar" />
+                <el-avatar :size="40" :src="item.profile_image || '/avatar.png'" class="comment-avatar" />
                 <div class="comment-content">
                   <div class="comment-header">
                     <span class="comment-author">{{ item.full_name }}@{{ item.username }}</span>
@@ -240,7 +240,7 @@
 
                     <div v-if="expandedRepliesIds.includes(item.id)" class="replies-list">
                       <div v-for="reply in repliesList" :key="reply.id" class="reply-item">
-                        <el-avatar :size="28" :src="reply.profile_image || '/src/assets/avatar.png'" />
+                        <el-avatar :size="28" :src="reply.profile_image || '/avatar.png'" />
                         <div class="reply-content">
                           <div class="reply-header">
                             <span class="reply-author">{{ reply.full_name }}@{{ reply.username }}</span>

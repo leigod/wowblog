@@ -102,7 +102,7 @@
                   padding: 0 0 0 20px;
                 ">
                 <div style="display: flex; align-items: center; width: 50px; border-radius: 50%">
-                  <img :src="authorInfo.profile_image ? authorInfo.profile_image : '/src/assets/avatar.png'
+                  <img :src="authorInfo.profile_image ? authorInfo.profile_image : '/avatar.png'
                     " :alt="t('article_editor.author_avatar')" class="author-avatar"
                     style="width: 51px; height: 51px; border-radius: 50%" />
                 </div>
@@ -141,7 +141,7 @@
                     <div v-for="item in searchAuthorResults" :key="item.id" class="author-item"
                       @click.stop="handleSelectAuthor(item)">
                       <div style="display: flex; align-items: center; width: 40px; border-radius: 50%">
-                        <img :src="item.profile_image ? item.profile_image : '/src/assets/avatar.png'"
+                        <img :src="item.profile_image ? item.profile_image : '/avatar.png'"
                           :alt="t('article_editor.author_avatar')" class="author-avatar"
                           style="width: 40px; height: 40px; border-radius: 50%" />
                       </div>
@@ -198,7 +198,7 @@
                   margin-top: 10px;
                 ">
                 <div style="display: flex; align-items: center; width: 40px; border-radius: 50%">
-                  <img :src="author.profile_image ? author.profile_image : '/src/assets/avatar.png'"
+                  <img :src="author.profile_image ? author.profile_image : '/avatar.png'"
                     :alt="t('article_editor.author_avatar')" class="author-avatar"
                     style="width: 40px; height: 40px; border-radius: 50%" />
                 </div>
@@ -238,7 +238,7 @@
                     <div v-for="item in searchAuthorResults" :key="item.id" class="author-item"
                       @click.stop="handleSelectCoAuthor(item)">
                       <div style="display: flex; align-items: center; width: 40px; border-radius: 50%">
-                        <img :src="item.profile_image ? item.profile_image : '/src/assets/avatar.png'"
+                        <img :src="item.profile_image ? item.profile_image : '/avatar.png'"
                           :alt="t('article_editor.author_avatar')" class="author-avatar"
                           style="width: 40px; height: 40px; border-radius: 50%" />
                       </div>

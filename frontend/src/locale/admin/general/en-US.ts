@@ -50,7 +50,8 @@ export default {
       members: 'Members',
       users: 'Users',
       docbooks: 'Document system',
-      messages: 'Notifications'
+      messages: 'Notifications',
+      logs: 'Admin Logs'
     }
   },
   breadcrumb: {

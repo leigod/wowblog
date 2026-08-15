@@ -6,8 +6,8 @@ from typing import Optional, List, Literal
 
 class BlogNavBase(BaseModel):
     label: str
-    nav_type: str
-    type: str
+    nav_type: Literal['sys', 'user']
+    type: Literal['link', 'page', 'series', 'doc']
     value: str
     sort: int
     status: int
@@ -20,7 +20,7 @@ class BlogNavCreate(BlogNavBase):
 
 class BlogNavUpdate(BaseModel):
     label: str
-    type: str
+    type: Literal['link', 'page', 'series', 'doc']
     value: str
 
 

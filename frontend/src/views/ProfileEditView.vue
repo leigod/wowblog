@@ -217,6 +217,9 @@
         </el-form-item>
       </el-form>
     </el-card>
+
+    <!-- 第三方账号绑定管理 -->
+    <OAuthBindings />
   </div>
 </template>
 
@@ -245,6 +248,7 @@ import {
 import { searchTagsFrontend } from '@/api/services/tags'
 import { getUserPrivacy, updateUserPrivacy } from '@/api/services/user'
 import { generateLetterAvatar } from '@/utils/avatarUtils'
+import OAuthBindings from '@/components/OAuthBindings.vue'
 
 // 定义表单数据接口
 interface ProfileForm {

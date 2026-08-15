@@ -2,7 +2,7 @@
 管理后台评论相关 Schema
 """
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -75,9 +75,20 @@ class CommentBatchOperation(BaseModel):
 class SensitiveWordCreate(BaseModel):
     """创建敏感词"""
     word: str = Field(..., min_length=1, max_length=100, description='敏感词')
-    type: str = Field(default='banned', description='类型: banned/review/replace')
+    type: Literal['banned', 'review', 'replace'] = Field(default='banned', description='类型: banned 拦截/review 标审/replace 替换')
     replacement: Optional[str] = Field(default=None, description='替换内容')
     category: Optional[str] = Field(default='other', description='分类')
+
+
+class SensitiveWordsImport(BaseModel):
+    """批量导入敏感词（纯文本，一行一条）：
+      词               → banned 拦截
+      词=>替换词       → replace 替换
+      词@@review       → review 标记待审核
+      # 开头为注释行
+    """
+    content: str = Field(..., min_length=1, description='纯文本内容')
+    category: Optional[str] = Field(default='other', description='统一分类')
 
 
 class SensitiveWordUpdate(BaseModel):
@@ -142,20 +153,3 @@ class CommentStatistics(BaseModel):
     hidden_comments: int = Field(description='被隐藏评论数')
     deleted_comments: int = Field(description='被删除评论数')
     sensitive_detected: int = Field(description='含敏感词评论数')
-
-
-# ==================== 系统设置 ====================
-class SystemSettingUpdate(BaseModel):
-    """系统设置更新"""
-    value: str = Field(..., description='设置值')
-
-
-class SystemSettingResponse(BaseModel):
-    """系统设置响应"""
-    key: str
-    value: str
-    type: str
-    description: Optional[str] = None
-    
-    class Config:
-        from_attributes = True

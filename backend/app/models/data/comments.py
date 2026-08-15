@@ -20,3 +20,7 @@ class BlogComments(Base):
     status = Column(Integer, default=1)
     createtime = Column(Integer, default=lambda: int(time.time()))
     deletetime = Column(Integer, default=None)
+    audit_status = Column(String(20), default='approved', server_default='approved', comment='审核状态: pending/approved/rejected')
+    updatetime = Column(Integer, nullable=True, comment='更新时间')
+    reviewed_by = Column(Integer, nullable=True, comment='审核人ID')
+    reviewed_at = Column(Integer, nullable=True, comment='审核时间')

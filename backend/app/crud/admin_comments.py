@@ -10,6 +10,7 @@ import app.models.data.articles as models_articles
 import app.models.data.users as models_users
 import app.models.admin_comments as models_admin
 import app.models.schemas.admin_comments as schemas
+from app.services.sensitive_word_service import invalidate_sensitive_words_cache
 
 
 async def get_comment_list(
@@ -445,20 +446,13 @@ async def _create_audit_log(
     admin_id: Optional[int] = None,
     reason: Optional[str] = None,
 ):
-    """创建审核日志"""
-    if not hasattr(models_admin, 'CommentAuditLog'):
-        return
+    """创建审核日志。
 
-    log = models_admin.CommentAuditLog(
-        comment_id=comment_id,
-        action=action,
-        from_status=from_status,
-        to_status=to_status,
-        admin_id=admin_id,
-        reason=reason,
-        created_at=int(time.time())
-    )
-    db.add(log)
+    待开发功能：wb_comment_audit_logs 表尚未创建，写入会因表不存在而阻塞评论状态更新，
+    故当前直接跳过；待该表建好后恢复下方写入逻辑（model CommentAuditLog 已保留）。
+    """
+    # TODO: 建 wb_comment_audit_logs 表后恢复以下写入逻辑
+    return
 
 
 # ==================== 敏感词管理 ====================
@@ -515,7 +509,15 @@ async def create_sensitive_word(
     word_data: schemas.SensitiveWordCreate,
     created_by: int,
 ) -> models_admin.SensitiveWord:
-    """创建敏感词"""
+    """创建敏感词（word 重复时返回 None，由路由层提示）"""
+    # 排重：同一敏感词只保留一条
+    dup = await db.execute(
+        select(models_admin.SensitiveWord.id).where(
+            models_admin.SensitiveWord.word == word_data.word
+        )
+    )
+    if dup.scalar_one_or_none() is not None:
+        return None
     word = models_admin.SensitiveWord(
         word=word_data.word,
         type=word_data.type,
@@ -528,6 +530,7 @@ async def create_sensitive_word(
     db.add(word)
     await db.commit()
     await db.refresh(word)
+    invalidate_sensitive_words_cache()
     return word
 
 
@@ -567,6 +570,7 @@ async def update_sensitive_word(
         )
         await db.commit()
         await db.refresh(word)
+        invalidate_sensitive_words_cache()
 
     return word
 
@@ -587,7 +591,59 @@ async def delete_sensitive_word(
 
     await db.delete(word)
     await db.commit()
+    invalidate_sensitive_words_cache()
     return True
+
+
+async def get_all_sensitive_words(db: AsyncSession) -> List[models_admin.SensitiveWord]:
+    """获取全部敏感词（导出用，不分页）"""
+    result = await db.execute(
+        select(models_admin.SensitiveWord).order_by(models_admin.SensitiveWord.id)
+    )
+    return list(result.scalars().all())
+
+
+async def batch_import_sensitive_words(
+    db: AsyncSession,
+    items: List[schemas.SensitiveWordCreate],
+    created_by: int,
+) -> Tuple[int, int]:
+    """
+    批量导入敏感词：word 已存在（库里或本批内重复）则跳过。
+    返回 (新增数, 跳过数)。
+    """
+    if not items:
+        return 0, 0
+
+    # 一次取现有词集合做排重
+    existing = await db.execute(select(models_admin.SensitiveWord.word))
+    existing_words = {row[0] for row in existing.fetchall()}
+
+    now = int(time.time())
+    added = 0
+    skipped = 0
+    seen = set()
+    for item in items:
+        w = (item.word or '').strip()
+        if not w or w in existing_words or w in seen:
+            skipped += 1
+            continue
+        seen.add(w)
+        db.add(models_admin.SensitiveWord(
+            word=w,
+            type=item.type,
+            replacement=item.replacement,
+            category=item.category,
+            status='active',
+            created_at=now,
+            created_by=created_by,
+        ))
+        added += 1
+
+    if added:
+        await db.commit()
+        invalidate_sensitive_words_cache()
+    return added, skipped
 
 
 # ==================== 黑名单管理 ====================
@@ -689,7 +745,17 @@ async def create_blacklist(
     blacklist_data: schemas.BlacklistCreate,
     admin_id: int,
 ) -> models_admin.Blacklist:
-    """创建黑名单"""
+    """创建黑名单（该用户同类型已有生效记录时返回 None，由路由层提示）"""
+    # 排重：同用户同类型已有 active 记录则不重复创建
+    dup = await db.execute(
+        select(models_admin.Blacklist.id).where(
+            models_admin.Blacklist.user_id == blacklist_data.user_id,
+            models_admin.Blacklist.type == blacklist_data.type,
+            models_admin.Blacklist.status == 'active',
+        )
+    )
+    if dup.scalar_one_or_none() is not None:
+        return None
     bl = models_admin.Blacklist(
         user_id=blacklist_data.user_id,
         type=blacklist_data.type,
@@ -729,7 +795,9 @@ async def update_blacklist(
     if status is not None:
         update_data['status'] = status
     if expire_at is not None:
-        update_data['expire_at'] = expire_at
+        # 约定：expire_at=0 表示改为永久（置 NULL）；正数为到期时间戳。
+        # （直接传 None 会落入"不更新"分支，无法从有限期改为永久）
+        update_data['expire_at'] = expire_at if expire_at > 0 else None
     if note is not None:
         update_data['note'] = note
 
@@ -790,71 +858,3 @@ async def check_user_blacklist(
     count = result.scalar() or 0
 
     return count > 0
-
-
-# ==================== 系统设置 ====================
-
-async def get_system_setting(
-    db: AsyncSession,
-    key: str,
-) -> Optional[models_admin.SystemSetting]:
-    """获取系统设置"""
-    stmt = select(models_admin.SystemSetting).where(
-        models_admin.SystemSetting.key == key
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def update_system_setting(
-    db: AsyncSession,
-    key: str,
-    value: str,
-    updated_by: Optional[int] = None,
-) -> Optional[models_admin.SystemSetting]:
-    """更新或创建系统设置"""
-    stmt = select(models_admin.SystemSetting).where(
-        models_admin.SystemSetting.key == key
-    )
-    result = await db.execute(stmt)
-    setting = result.scalar_one_or_none()
-
-    now = int(time.time())
-
-    if setting:
-        # 更新
-        await db.execute(
-            update(models_admin.SystemSetting).where(
-                models_admin.SystemSetting.key == key
-            ).values(
-                value=value,
-                updated_at=now,
-                updated_by=updated_by,
-            )
-        )
-        await db.commit()
-        await db.refresh(setting)
-        return setting
-    else:
-        # 创建
-        new_setting = models_admin.SystemSetting(
-            key=key,
-            value=value,
-            type='string',
-            updated_at=now,
-            updated_by=updated_by,
-        )
-        db.add(new_setting)
-        await db.commit()
-        await db.refresh(new_setting)
-        return new_setting
-
-
-async def get_comment_audit_enabled(
-    db: AsyncSession,
-) -> bool:
-    """获取是否开启评论审核"""
-    setting = await get_system_setting(db, 'comment_audit_enabled')
-    if not setting:
-        return False
-    return setting.value.lower() in ('true', '1', 'yes')
