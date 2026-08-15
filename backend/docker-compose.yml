@@ -1,6 +1,12 @@
 # Docker Compose 配置 for WowBlog
 version: '3.8'
 
+# 固定 compose 项目名（与目录名解耦）：
+# 数据卷/容器/镜像的命名都基于它（如 wowblog-backend_mysql_data）。
+# 生产部署目录是 git clone 的子目录（目录名任意），必须锁定这个名字才能
+# 复用既有数据卷——否则换目录会创建空库。
+name: wowblog-backend
+
 services:
   # MySQL 数据库
   mysql:
