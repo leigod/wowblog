@@ -4,11 +4,11 @@ FROM python:3.13-slim AS builder
 
 WORKDIR /build
 
-# 安装构建依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# 说明：requirements 全部依赖均有 manylinux 预编译 wheel 或为纯 Python（bcrypt/
+# cryptography/pillow/pydantic-core 等官方二进制分发），无需 gcc/g++ 现场编译。
+# 旧版在这里 apt-get 装 gcc/g++，会访问境外 Debian 源，国内服务器极慢，已移除。
+# 若未来新增无 wheel 的源码包，构建会当场报错（fail fast），届时再按需加回编译器
+# 并换成国内镜像源（如 mirrors.aliyun.com）。
 
 # 复制依赖文件
 COPY requirements.txt .
