@@ -3,13 +3,14 @@
 # 作用：push 到 main 后自动把代码推送到 Gitee 镜像仓库（国内访问快，
 #       生产服务器可改从 Gitee 拉取，解决 GitHub 访问不稳的问题）。
 #
-# 使用前需完成两步配置（见仓库 README 或部署文档）：
-#   1. 在 Gitee 创建同名空仓库（不要初始化 README），把下方 GITEE_REPO 改成你的 Gitee 用户名/仓库名
-#   2. 生成一对专用 SSH key：公钥加到 Gitee「设置→SSH公钥」；
-#      私钥放入 GitHub 仓库「Settings→Secrets and variables→Actions」，
-#      名称必须为 GITEE_SSH_PRIVATE_KEY
+# 使用前需完成两步配置：
+#   1. 在 Gitee 创建同名空仓库（不要初始化 README），确认下方 GITEE_REPO 是你的 Gitee 用户名/仓库名
+#   2. 生成一对专用 SSH key（ssh-keygen -t ed25519 -C "gitee-sync"）：
+#      公钥加到 Gitee「设置→SSH公钥」；私钥放入 GitHub 仓库
+#      「Settings→Secrets and variables→Actions」，名称必须为 GITEE_SSH_PRIVATE_KEY
 #
 # 未配置 Secret 时本 workflow 自动跳过（不会报错）。
+# 注：secrets 上下文不能出现在 if: 表达式里（平台限制），故在 shell 内判空。
 
 name: Sync to Gitee
 
@@ -31,11 +32,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 推送镜像到 Gitee
-        if: ${{ secrets.GITEE_SSH_PRIVATE_KEY != '' }}
+      - name: 推送镜像到 Gitee（未配置密钥时自动跳过）
         env:
           GITEE_SSH_PRIVATE_KEY: ${{ secrets.GITEE_SSH_PRIVATE_KEY }}
         run: |
+          if [ -z "$GITEE_SSH_PRIVATE_KEY" ]; then
+            echo "⏭ 已跳过 Gitee 同步：未配置 GITEE_SSH_PRIVATE_KEY secret。"
+            echo "   配置方法见本 workflow 文件顶部注释。"
+            exit 0
+          fi
           mkdir -p ~/.ssh
           printf '%s\n' "$GITEE_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
@@ -43,9 +48,3 @@ jobs:
           git remote add gitee "git@gitee.com:${GITEE_REPO}.git"
           git push --force gitee main
           git push --force gitee --tags || true
-
-      - name: 未配置密钥时提示
-        if: ${{ secrets.GITEE_SSH_PRIVATE_KEY == '' }}
-        run: |
-          echo "⏭ 已跳过 Gitee 同步：未配置 GITEE_SSH_PRIVATE_KEY secret。"
-          echo "  配置方法见本 workflow 文件顶部注释。"
