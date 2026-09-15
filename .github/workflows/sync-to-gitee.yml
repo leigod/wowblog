@@ -1,0 +1,51 @@
+# 自动镜像同步：GitHub → Gitee
+#
+# 作用：push 到 main 后自动把代码推送到 Gitee 镜像仓库（国内访问快，
+#       生产服务器可改从 Gitee 拉取，解决 GitHub 访问不稳的问题）。
+#
+# 使用前需完成两步配置（见仓库 README 或部署文档）：
+#   1. 在 Gitee 创建同名空仓库（不要初始化 README），把下方 GITEE_REPO 改成你的 Gitee 用户名/仓库名
+#   2. 生成一对专用 SSH key：公钥加到 Gitee「设置→SSH公钥」；
+#      私钥放入 GitHub 仓库「Settings→Secrets and variables→Actions」，
+#      名称必须为 GITEE_SSH_PRIVATE_KEY
+#
+# 未配置 Secret 时本 workflow 自动跳过（不会报错）。
+
+name: Sync to Gitee
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # 允许在 Actions 页面手动触发
+
+# ★ 改成你的 Gitee 仓库地址（用户名/仓库名）
+env:
+  GITEE_REPO: leigod/wowblog
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout（完整历史）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 推送镜像到 Gitee
+        if: ${{ secrets.GITEE_SSH_PRIVATE_KEY != '' }}
+        env:
+          GITEE_SSH_PRIVATE_KEY: ${{ secrets.GITEE_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$GITEE_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan gitee.com >> ~/.ssh/known_hosts 2>/dev/null
+          git remote add gitee "git@gitee.com:${GITEE_REPO}.git"
+          git push --force gitee main
+          git push --force gitee --tags || true
+
+      - name: 未配置密钥时提示
+        if: ${{ secrets.GITEE_SSH_PRIVATE_KEY == '' }}
+        run: |
+          echo "⏭ 已跳过 Gitee 同步：未配置 GITEE_SSH_PRIVATE_KEY secret。"
+          echo "  配置方法见本 workflow 文件顶部注释。"
