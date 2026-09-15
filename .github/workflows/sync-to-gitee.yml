@@ -21,7 +21,7 @@ on:
 
 # ★ 改成你的 Gitee 仓库地址（用户名/仓库名）
 env:
-  GITEE_REPO: leigod/wowblog
+  GITEE_REPO: freebox/wowblog
 
 jobs:
   sync:
