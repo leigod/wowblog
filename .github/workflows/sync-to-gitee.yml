@@ -19,7 +19,8 @@ on:
     branches: [main]
   workflow_dispatch: {}   # 允许在 Actions 页面手动触发
 
-# ★ 改成你的 Gitee 仓库地址（用户名/仓库名）
+# ★ Gitee 仓库地址 = Gitee 用户名/仓库名（个人资料里的"姓名/昵称"不算数，
+#   以仓库页面看到的 git@gitee.com:XXX/yyy.git 为准）
 env:
   GITEE_REPO: leigod/wowblog
 
@@ -28,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout（完整历史）
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
