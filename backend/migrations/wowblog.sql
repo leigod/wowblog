@@ -2,7 +2,7 @@
 -- 由 mysqldump --no-data 从当前开发库导出，仅含表结构，不含任何真实业务数据。
 -- 下方 INSERT 均为占位模板（示例管理员 / 示例配置）。
 -- 初始管理员：admin / yourname@example.com，初始密码 admin123456，首次登录后请立即修改。
--- alembic_version 已写入当前 head（f7a3c1e9d4b2），保持与 alembic/versions/ 一致。
+-- alembic_version 已写入当前 head（9e2b7c4a1f6d），保持与 alembic/versions/ 一致。
 --
 -- MySQL dump 10.13  Distrib 8.4.4, for macos15 (arm64)
 --
@@ -709,7 +709,7 @@ CREATE TABLE `wb_users_data` (
 -- Dump completed on 2026-11-18 15:36:10
 
 -- 初始模板数据（无真实用户数据）
-INSERT INTO `alembic_version` (`version_num`) VALUES ('f7a3c1e9d4b2');
+INSERT INTO `alembic_version` (`version_num`) VALUES ('9e2b7c4a1f6d');
 
 INSERT INTO `wb_config` (`id`, `site_title`, `site_logo`, `site_favicon`, `language`, `dark_mode`, `disable_comment`, `default_homepage`, `default_docbook_id`, `doc_subdomain`, `doc_comment`, `message_push_method`, `polling_interval`, `footer_config`, `enable_register`, `register_role`, `enable_article_review_notification`, `article_review_notification_roles`) VALUES
 (1, 'WOW Blog', '/wow_blog_logo.svg', '/favicon.ico', 'zh-CN', 'system', 0, 'blog', NULL, NULL, 1, 'websocket', 30, '{\"logo_url\": \"/wow_blog_logo.svg\", \"site_description\": \"一个具有社交功能的团队Blog系统，并能创建专业的文档系统。\", \"social_media\": [{\"icon\": \"ant-design:zhihu-circle-filled\", \"url\": \"http://www.zhihu.com/user/123456\"}, {\"icon\": \"mage:tiktok-circle\", \"url\": \"http://www.douyin.com/user/231231231\"}, {\"icon\": \"simple-icons:xiaohongshu\", \"url\": \"http://www.xiaohongshu.com/user/12312312\"}, {\"icon\": \"ri:weibo-fill\", \"url\": \"http://weibo.com/\"}, {\"icon\": \"streamline-ultimate:bilibili-logo-bold\", \"url\": \"http://www.bilibili.com/\"}], \"nav_groups\": [{\"group_name\": \"产品\", \"links\": [{\"name\": \"Blog系统\", \"url\": \"\"}, {\"name\": \"文档系统\", \"url\": \"\"}]}, {\"group_name\": \"公司\", \"links\": [{\"name\": \"服务协议\", \"url\": \"\"}, {\"name\": \"隐私协议\", \"url\": \"\"}]}, {\"group_name\": \"联系我们\", \"links\": [{\"name\": \"contact@company.com\", \"url\": \"\"}]}], \"copyright\": \"WOW Blog\", \"icp_info\": [{\"text\": \"津ICP备 12345-5号\", \"url\": \"http://ww.mii.org.cn/\"}]}', 1, 'User', 1, '[\"Admin\",\"Editor\"]');
