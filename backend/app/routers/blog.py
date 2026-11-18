@@ -704,10 +704,14 @@ async def delete_reading_history_record(
 async def update_view_duration(
     article_id: int,
     view_duration: int,
-    user_id: int = Depends(get_current_user_id),
+    user_id: int | None = Depends(get_optional_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """更新当前文章的阅读时长（秒）"""
+    """更新当前文章的阅读时长（秒）。
+
+    阅读时长属于浏览埋点，游客浏览同样会上报；未登录/token 失效时返回 None，
+    crud 层会直接跳过写入，避免因埋点接口污染控制台 401。
+    """
     result = await crudArticleViews.update_view_duration(
         db=db,
         user_id=user_id,
@@ -816,19 +820,24 @@ async def get_blog_site(
     ]
 
     # 社媒与个人资料同源（wb_users.social_profiles，与「个人资料/外观设置」编辑的同一份数据）：
-    # crudUsers.get_user 返回 Pydantic schema（无此字段），需直查 ORM 列
+    # crudUsers.get_user 返回 Pydantic schema（无此字段），需直查 ORM 列。
+    # 容错：老库（仅靠 alembic 升级、没导入全量 SQL）可能缺此列，缺列时社媒置空即可，
+    # 不应拖垮整个公开博客首页（500）。列本身已由 f7a3c1e9d4b2 迁移补齐。
     social_links = []
-    social_row = await db.execute(
-        select(modelsUsers.User.social_profiles).where(modelsUsers.User.id == user.id)
-    )
-    raw_social_profiles = social_row.scalar_one_or_none()
     try:
+        social_row = await db.execute(
+            select(modelsUsers.User.social_profiles).where(modelsUsers.User.id == user.id)
+        )
+        raw_social_profiles = social_row.scalar_one_or_none()
         raw_social = json.loads(raw_social_profiles) if raw_social_profiles else {}
         if isinstance(raw_social, dict):
             social_links = [
                 {'platform': k, 'url': str(v)} for k, v in raw_social.items() if v
             ]
     except (ValueError, TypeError):
+        social_links = []
+    except Exception:
+        # 列缺失等数据库层异常：降级为空，保证接口可用
         social_links = []
 
     return success(data={
