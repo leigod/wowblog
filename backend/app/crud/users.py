@@ -713,7 +713,13 @@ async def update_user_profile(db: AsyncSession, user_id: int, profile_data: dict
         else:
             update_data['social_profiles'] = None
     if 'profile_image' in profile_data:
-        update_data['profile_image'] = profile_data['profile_image']
+        avatar = profile_data['profile_image']
+        # 旧版前端在上传失败时会回退到浏览器临时 blob: URL，写库后刷新即失效；
+        # 忽略这种值，保留 POST /api/user/avatar 已写入的持久 URL。
+        if isinstance(avatar, str) and avatar.startswith('blob:'):
+            avatar = None
+        if avatar is not None:
+            update_data['profile_image'] = avatar
 
     if update_data:
         for key, value in update_data.items():

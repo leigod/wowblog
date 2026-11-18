@@ -540,8 +540,10 @@ const handleAvatarSuccess = async (response: any, file: any) => {
   try {
     // 调用API上传头像
     const uploadResponse = await updateUserAvatar(file)
-    // 使用后端返回的头像URL
-    profileForm.avatarUrl = uploadResponse.avatarUrl || URL.createObjectURL(file)
+    // 后端统一响应包了一层 data：{code, msg, data:{avatarUrl}}；
+    // 兼容旧结构，避免取不到 URL 时误存浏览器临时 blob: 地址
+    const uploadData = uploadResponse?.data ?? uploadResponse
+    profileForm.avatarUrl = uploadData?.avatarUrl || uploadData?.url || URL.createObjectURL(file)
     ElMessage.success(t('profile_edit.avatar_upload_success'))
   } catch (error) {
     console.error('头像上传失败:', error)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, status, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, status, Request, UploadFile
 from sqlalchemy.orm import Session
 import uvicorn
 
@@ -18,6 +18,7 @@ from app.dependencies.authentication import authenticate_user, create_access_tok
 from datetime import datetime, timedelta, timezone
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import os
+import pathlib
 from app.utils.logger import security_logger, api_logger, exception_logger
 from app.services.email_service import EmailConfig, send_reset_password_email
 from app.utils.auth import verify_password, get_password_hash
@@ -144,6 +145,43 @@ async def update_user_profile(
     if not updated_user:
         raise HTTPException(status_code=404, detail="用户不存在")
     return success(data=schemas.UserFullInfo.model_validate(updated_user))
+
+
+# 上传当前用户头像（前端 ProfileEditView 调用 POST /api/user/avatar）
+@router.post("/user/avatar", response_model=ApiResponse[dict])
+async def update_user_avatar(
+    current_user: Annotated[schemas.User, Depends(get_current_active_user)],
+    avatar: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """上传图片作为当前用户头像：校验后落盘并写入 profile_image。"""
+    # 复用通用上传的白名单/魔数校验，避免两套规则漂移；头像只允许 jpg/png
+    from app.internal.upload import (
+        UPLOAD_FILE_MAX_SIZE, EXT_MIME_MAP, _detect_exts_by_magic,
+    )
+
+    content = await avatar.read()
+    ext = os.path.splitext(avatar.filename or '')[1].lower()
+    if ext not in {'.jpg', '.jpeg', '.png'}:
+        return error('头像仅支持 JPG / PNG 格式')
+    if not content or len(content) > UPLOAD_FILE_MAX_SIZE:
+        return error('头像不能超过 2MB')
+    if avatar.content_type and avatar.content_type not in EXT_MIME_MAP.get(ext, set()):
+        return error('文件类型与内容不符！')
+    detected = _detect_exts_by_magic(content)
+    if detected and ext not in detected:
+        return error('文件内容与扩展名不符！')
+
+    filename = f'{os.urandom(16).hex()}{ext}'
+    current_date = datetime.now().strftime('%Y%m%d')
+    upload_dir = pathlib.Path(__file__).resolve().parent.parent / 'uploads' / current_date
+    os.makedirs(upload_dir, exist_ok=True)
+    with open(upload_dir / filename, 'wb') as file_handle:
+        file_handle.write(content)
+
+    avatar_url = f'/static/{current_date}/{filename}'
+    await crud.update_user_profile(db, current_user.id, {'profile_image': avatar_url})
+    return success(data={'avatarUrl': avatar_url, 'url': avatar_url})
 
 
 class ChangePasswordRequest(BaseModel):
