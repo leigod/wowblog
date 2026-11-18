@@ -538,12 +538,14 @@ const beforeAvatarUpload: UploadProps['beforeUpload'] = (rawFile) => {
 // 头像上传成功处理
 const handleAvatarSuccess = async (response: any, file: any) => {
   try {
-    // 调用API上传头像
-    const uploadResponse = await updateUserAvatar(file)
+    // Element Plus on-success 的第二个参数是包装过的 UploadFile，真正文件在 .raw。
+    // 直接传包装对象会被 FormData 转成字符串 "[object Object]"，后端收到 str -> 422。
+    const rawFile = file?.raw ?? file
+    const uploadResponse = await updateUserAvatar(rawFile)
     // 后端统一响应包了一层 data：{code, msg, data:{avatarUrl}}；
     // 兼容旧结构，避免取不到 URL 时误存浏览器临时 blob: 地址
     const uploadData = uploadResponse?.data ?? uploadResponse
-    profileForm.avatarUrl = uploadData?.avatarUrl || uploadData?.url || URL.createObjectURL(file)
+    profileForm.avatarUrl = uploadData?.avatarUrl || uploadData?.url || URL.createObjectURL(rawFile)
     ElMessage.success(t('profile_edit.avatar_upload_success'))
   } catch (error) {
     console.error('头像上传失败:', error)
