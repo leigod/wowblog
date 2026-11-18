@@ -78,14 +78,12 @@ export const updateUserAvatar = (file: File): Promise<any> => {
   const formData = new FormData()
   formData.append('avatar', file)
 
+  // Content-Type 由 http.ts 请求拦截器统一处理：
+  // FormData 一律删掉默认的 application/json，让浏览器补 multipart boundary
   return request({
     url: '/user/avatar',
     method: 'POST',
-    data: formData,
-    headers: {
-      // 删除 Content-Type，让浏览器自动设置 multipart/form-data boundary
-      'Content-Type': undefined
-    }
+    data: formData
   })
 }
 

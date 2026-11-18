@@ -40,6 +40,13 @@ http.interceptors.request.use(
     // 显示全局加载状态
     appStore.setLoading(true)
 
+    // 上传 FormData 时必须移除实例默认的 application/json，
+    // 否则后端按 JSON 解析 multipart 请求体 -> 422。
+    // 删掉后浏览器会自动补带 boundary 的 multipart/form-data。
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+    }
+
     // 获取token：优先使用用户access_token，其次使用临时token
     let token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
 

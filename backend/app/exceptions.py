@@ -25,6 +25,29 @@ logger = logging.getLogger(__name__)
 DEBUG_MODE = os.getenv('DEBUG', 'false').lower() == 'true'
 
 
+def _json_safe(value, _depth: int = 0):
+    """把校验错误中的非 JSON 对象转成可序列化值。
+
+    Pydantic v2 的 RequestValidationError.errors() 在 ctx 里会放原始异常对象
+    （如 JSONDecodeError/ValueError）。直接塞进 JSONResponse 会抛
+    TypeError: Object of type ValueError is not JSON serializable，
+    导致本应返回 422 的请求变成 500。
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if _depth > 8:
+        return str(value)
+    if isinstance(value, Exception):
+        return f"{type(value).__name__}: {value}"
+    if isinstance(value, bytes):
+        return value.decode('utf-8', errors='replace')[:2000]
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item, _depth + 1) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item, _depth + 1) for item in value]
+    return str(value)
+
+
 async def http_exception_handler(request: Request, exc):
     """处理HTTP异常"""
     return JSONResponse(
@@ -35,7 +58,7 @@ async def http_exception_handler(request: Request, exc):
             "data": {
                 "path": request.url.path,
                 "method": request.method,
-                "detail": exc.detail
+                "detail": _json_safe(exc.detail)
             }
         },
         status_code=exc.status_code
@@ -69,7 +92,7 @@ async def validation_exception_handler(
             "time": int(time.time()),
             "data": {
                 "path": _.url.path,
-                "errors": exc.errors()
+                "errors": _json_safe(exc.errors())
             }
         },
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
