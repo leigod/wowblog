@@ -10,6 +10,11 @@ export default {
     label: '名称',
     type: '类型',
     value: '值',
+    status: '状态',
+    status_text: {
+      normal: '正常',
+      hidden: '隐藏'
+    },
     actions: '操作'
   },
   form: {
@@ -46,6 +51,10 @@ export default {
       series: '加载系列...'
     },
     update: {
+      status: {
+        success: '状态更新成功',
+        error: '状态更新失败'
+      },
       sort: {
         success: '更新排序成功',
         error: '更新排序失败'

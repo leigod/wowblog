@@ -77,10 +77,10 @@ async def create_article(
     db: AsyncSession = Depends(get_db)
 ):
     tag_names = article.tags.split(",") if article.tags else None
-    if article.co_authors == "" or article.co_authors == []:
+    # co_authors 规范化：空值（""/[]/None）归 None；schema 只收 str，直接透传
+    # （此前 None 走 join 会 TypeError，str 逐字符迭代会把 "8,9" 变 "8,,,9"）
+    if not article.co_authors:
         article.co_authors = None
-    else:
-        article.co_authors = ",".join(article.co_authors)
     if article.series_id == "":
         article.series_id = None
     elif type(article.series_id) == str:
@@ -98,8 +98,10 @@ async def create_article(
             article.slug = article.title.replace(" ", "_").replace(",", "-").lower()
         # 移除所有非字母、数字、下划线、短横线的字符
         article.slug = re.sub(r"[^a-zA-Z0-9_-]", "", article.slug)
-    # 文章slug具有唯一性，查询是否存在相同slug的文章，如存在则在slug后添加短横线和6位小写字母数字随机数
-    if await crudArticles.check_article_slug_unique(db, slug=article.slug):
+    # 服务端兜底：一律小写 + 长度截断（slug 列 varchar(100)，为 "_"+6位随机后缀预留 7 字符）
+    article.slug = article.slug.lower()[:93]
+    # 文章slug具有唯一性：check 返回 True=唯一、False=已存在，仅在冲突时加随机后缀
+    if not await crudArticles.check_article_slug_unique(db, slug=article.slug):
         article.slug += "_" + "".join(random.sample(string.ascii_lowercase + string.digits, 6))
 
     # 使用新列表存储标签ID，避免在遍历过程中修改原列表
@@ -169,10 +171,10 @@ async def update_article(
     if old_article is None:
         raise HTTPException(status_code=404, detail="Article not found")
     tag_names = article.tags.split(",") if article.tags else None
-    if article.co_authors == "" or article.co_authors == []:
+    # co_authors 规范化：空值（""/[]/None）归 None；schema 只收 str，直接透传
+    # （此前 None 走 join 会 TypeError，str 逐字符迭代会把 "8,9" 变 "8,,,9"）
+    if not article.co_authors:
         article.co_authors = None
-    else:
-        article.co_authors = ",".join(article.co_authors)
     if article.series_id == "":
         article.series_id = None
     elif type(article.series_id) == str:
@@ -190,10 +192,13 @@ async def update_article(
             article.slug = article.title.replace(" ", "_").replace(",", "-").lower()
         # 移除所有非字母、数字、下划线、短横线的字符
         article.slug = re.sub(r"[^a-zA-Z0-9_-]", "", article.slug)
+        # slug 列 varchar(100)，为 "_"+6位随机后缀预留 7 字符
+        article.slug = article.slug.lower()[:93]
         if not await crudArticles.check_article_slug_unique(db, slug=article.slug):
             article.slug += "_" + "".join(random.sample(string.ascii_lowercase + string.digits, 6))
     elif old_article.slug != article.slug:
-        # 文章slug具有唯一性，查询是否存在相同slug的文章，如存在则在slug后添加短横线和6位小写字母数字随机数
+        # 用户自定义 slug：小写 + 截断后再查唯一性，冲突时加随机后缀
+        article.slug = article.slug.lower()[:93]
         if not await crudArticles.check_article_slug_unique(db, slug=article.slug):
             article.slug += "_" + "".join(random.sample(string.ascii_lowercase + string.digits, 6))
 
@@ -255,6 +260,23 @@ async def update_article_op_status(article_id: int, article: schemasArticles.Blo
     if db_article:
         return success(data=db_article)
     return error(data={'error': '文章不存在或已被删除'})
+
+
+# 更新文章平台排序权重（Admin 后台编辑 wb_articles.sort；不复用全量 update——
+# 那条链路对未传字段有 tags/co_authors 清空副作用，专用接口只动 sort）
+@router.post("/articles/update/sort/{article_id}", response_model=ApiResponse[schemasArticles.BlogArticle])
+async def update_article_sort(
+    article_id: int,
+    sort_data: schemasArticles.BlogArticleUpdateSort,
+    db: AsyncSession = Depends(get_db)
+):
+    old_article = await crudArticles.get_article(db, article_id=article_id)
+    if old_article is None:
+        return error(msg='文章不存在或已被删除')
+    old_article.sort = sort_data.sort
+    await db.commit()
+    await db.refresh(old_article)
+    return success(data=old_article)
 
 
 # 更新文章状态

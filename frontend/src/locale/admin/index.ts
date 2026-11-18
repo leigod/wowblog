@@ -20,6 +20,7 @@ import docbook from './docbook/index'
 import doc from './doc/index'
 import settings from './settings/index'
 import appearance from './appearance/index'
+import creator from './creator/index'
 
 // 导出合并后的语言对象
 export default {
@@ -38,6 +39,7 @@ export default {
   docbook,
   doc,
   settings,
-  appearance
+  appearance,
+  creator
   // 可以添加更多模块
 }

@@ -5,6 +5,10 @@ const ListView = () => import('@/views/ListView.vue')
 const ArticleEditView = () => import('@/views/ArticleEditView.vue')
 const PageView = () => import('@/views/PageView.vue')
 const SeriesView = () => import('@/views/SeriesView.vue')
+// Author 个人博客首页（magazine 等布局）
+const BlogHomeView = () => import('@/views/blog/BlogHomeView.vue')
+const BlogSeriesView = () => import('@/views/blog/BlogSeriesView.vue')
+const BlogCategoryView = () => import('@/views/blog/BlogCategoryView.vue')
 const CategoryView = () => import('@/views/CategoryView.vue')
 const LoginView = () => import('@/views/LoginView.vue')
 const FrontLoginView = () => import('@/views/FrontLoginView.vue')
@@ -14,6 +18,10 @@ const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 // 文档模块视图组件
 const DocBookView = () => import('@/views/DocBookView.vue')
 const DocView = () => import('@/views/DocView.vue')
+// 目录索引页（一级导航可点击的落地页）
+const DocBookIndexView = () => import('@/views/DocBookIndexView.vue')
+const CategoryIndexView = () => import('@/views/CategoryIndexView.vue')
+const SeriesIndexView = () => import('@/views/SeriesIndexView.vue')
 // 管理后台文档管理视图
 const DocBookManagementView = () => import('@/views/admin/DocBookManagementView.vue')
 const DocManagementView = () => import('@/views/admin/DocManagementView.vue')
@@ -41,6 +49,13 @@ const UserManagementView = () => import('@/views/admin/UserManagementView.vue')
 const EditArticleView = () => import('@/views/admin/EditArticleView.vue')
 const CommentManagementView = () => import('@/views/admin/CommentManagementView.vue')
 const AdminLogsView = () => import('@/views/admin/AdminLogsView.vue')
+// Author 个人博客工作台（Creator）
+const CreatorSettingsView = () => import('@/views/creator/CreatorSettingsView.vue')
+const CreatorAppearanceView = () => import('@/views/creator/CreatorAppearanceView.vue')
+const CreatorCategoriesView = () => import('@/views/creator/CreatorCategoriesView.vue')
+const CreatorSeriesView = () => import('@/views/creator/CreatorSeriesView.vue')
+const CreatorNavsView = () => import('@/views/creator/CreatorNavsView.vue')
+const CreatorArticlesView = () => import('@/views/creator/CreatorArticlesView.vue')
 const SearchResultView = () => import('@/views/SearchResult.vue')
 const NotificationsView = () => import('@/views/NotificationsView.vue')
 const InviteAcceptView = () => import('@/views/InviteAcceptView.vue')
@@ -109,9 +124,8 @@ const router = createRouter({
       path: '/article/:slug',
       name: 'article',
       component: ArticleView,
-      meta: {
-        title: '文章详情'
-      }
+      // 顶栏/footer 由组件内按文章来源动态渲染（网站版/ blog 版），故用 blank 布局
+      meta: { title: '文章详情', layout: 'blank' }
     },
     {
       path: '/tag/:slug',
@@ -185,13 +199,34 @@ const router = createRouter({
       }
     },
     {
+      // Author 个人博客首页（公开访问；blank 布局自绘顶栏与 footer）
+      path: '/blog/:username',
+      name: 'blog-home',
+      component: BlogHomeView,
+      meta: { title: 'Blog', layout: 'blank' }
+    },
+    {
+      // Author 个人博客的系列列表页（公开访问；blank 布局自绘顶栏与 footer）
+      path: '/blog/:username/series/:seriesSlug',
+      name: 'blog-series',
+      component: BlogSeriesView,
+      meta: { title: 'Blog Series', layout: 'blank' }
+    },
+    {
+      // Author 个人博客的分类列表页（公开访问；blank 布局自绘顶栏与 footer）
+      path: '/blog/:username/category/:categorySlug',
+      name: 'blog-category',
+      component: BlogCategoryView,
+      meta: { title: 'Blog Category', layout: 'blank' }
+    },
+    {
       path: '/my-articles',
       name: 'my-articles',
       component: MyArticlesView,
       meta: {
         title: '我的文章',
         requiresAuth: true,
-        roles: ['Author', 'Contributor']
+        roles: ['Contributor']
       }
     },
     {
@@ -227,10 +262,22 @@ const router = createRouter({
       meta: { title: '动态页面' }
     },
     {
+      path: '/series',
+      name: 'series-index',
+      component: SeriesIndexView,
+      meta: { title: '全部系列' }
+    },
+    {
       path: '/series/:seriesSlug',
       name: 'dynamic-series',
       component: SeriesView,
       meta: { title: '动态系列' }
+    },
+    {
+      path: '/category',
+      name: 'category-index',
+      component: CategoryIndexView,
+      meta: { title: '全部分类' }
     },
     {
       path: '/category/:categorySlug',
@@ -239,6 +286,12 @@ const router = createRouter({
       meta: { title: '动态分类' }
     },
     // 文档模块路由
+    {
+      path: '/docs',
+      name: 'docbook-index',
+      component: DocBookIndexView,
+      meta: { title: '文档' }
+    },
     {
       path: '/docs/:docbookSlug',
       name: 'docbook',
@@ -476,6 +529,55 @@ const router = createRouter({
       ]
     },
     {
+      // Author 个人博客工作台：布局由 meta.layout='admin'（App.vue 的 currentLayout）承担，
+      // 父路由不挂 component——否则 AdminLayout 会被渲染两层（外层由 App.vue 包，
+      // 内层又作为路由组件渲染在内容区里，形成套娃）。/admin 父路由同此模式。
+      path: '/creator',
+      meta: { layout: 'admin', roles: ['Author', 'Admin'] },
+      children: [
+        {
+          path: '',
+          redirect: '/creator/settings'
+        },
+        {
+          path: 'settings',
+          name: 'creator-settings',
+          component: CreatorSettingsView,
+          meta: { layout: 'admin', title: '常规设置', roles: ['Author', 'Admin'] }
+        },
+        {
+          path: 'appearance',
+          name: 'creator-appearance',
+          component: CreatorAppearanceView,
+          meta: { layout: 'admin', title: '外观设置', roles: ['Author', 'Admin'] }
+        },
+        {
+          path: 'categories',
+          name: 'creator-categories',
+          component: CreatorCategoriesView,
+          meta: { layout: 'admin', title: '分类管理', roles: ['Author', 'Admin'] }
+        },
+        {
+          path: 'series',
+          name: 'creator-series',
+          component: CreatorSeriesView,
+          meta: { layout: 'admin', title: '系列管理', roles: ['Author', 'Admin'] }
+        },
+        {
+          path: 'navs',
+          name: 'creator-navs',
+          component: CreatorNavsView,
+          meta: { layout: 'admin', title: '导航管理', roles: ['Author', 'Admin'] }
+        },
+        {
+          path: 'articles',
+          name: 'creator-articles',
+          component: CreatorArticlesView,
+          meta: { layout: 'admin', title: '文章管理', roles: ['Author', 'Admin'] }
+        }
+      ]
+    },
+    {
       path: '/admin/articles/create',
       name: 'admin-articles-create',
       component: CreateArticleView,
@@ -497,14 +599,14 @@ const router = createRouter({
         layout: 'blank'
       }
     },
-    // Author 和 Contributor 的文章创建和编辑路由
+    // Contributor 的文章创建和编辑路由（Author 已迁移至 /creator/articles/*）
     {
       path: '/my-articles/create',
       name: 'my-articles-create',
       component: CreateArticleView,
       meta: {
         title: '创建文章',
-        roles: ['Author', 'Contributor'],
+        roles: ['Contributor'],
         requiresAuth: true,
         layout: 'blank'
       }
@@ -515,7 +617,31 @@ const router = createRouter({
       component: EditArticleView,
       meta: {
         title: '编辑文章',
-        roles: ['Author', 'Contributor'],
+        roles: ['Contributor'],
+        requiresAuth: true,
+        layout: 'blank'
+      }
+    },
+    // Author 的文章创建/编辑：复用同组件，组件内按路由前缀进入 creator 模式
+    // （发布抽屉显示 Blog 分类/系列选择，平台分类隐藏——平台分类由审核者定）
+    {
+      path: '/creator/articles/create',
+      name: 'creator-articles-create',
+      component: CreateArticleView,
+      meta: {
+        title: '创建文章',
+        roles: ['Author', 'Admin'],
+        requiresAuth: true,
+        layout: 'blank'
+      }
+    },
+    {
+      path: '/creator/articles/edit/:id',
+      name: 'creator-articles-edit',
+      component: EditArticleView,
+      meta: {
+        title: '编辑文章',
+        roles: ['Author', 'Admin'],
         requiresAuth: true,
         layout: 'blank'
       }

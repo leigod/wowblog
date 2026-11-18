@@ -6,7 +6,7 @@
           <el-col :xs="24" :sm="24" :md="16">
             <div style="display: flex; align-items: center; margin-bottom: 20px">
               <h2 style="margin: 0; font-size: 24px; font-weight: 800">{{ t('bookmarks.title') }}</h2>
-              <span style="margin-left: 15px; color: #909399; font-size: 14px">{{ t('bookmarks.count', {
+              <span style="margin-left: 15px; color: var(--wy-text-tertiary, #71717a); font-size: 14px">{{ t('bookmarks.count', {
                 count:
                   totalCount
               }) }}</span>
@@ -61,8 +61,9 @@
                     <span>{{ item.stats?.views || 0 }} {{ t('home.list.reads') }}</span>
                   </div>
                   <div class="right">
-                    <el-button type="info" size="small" plain round style="border: 1px solid #e4e7ed; font-weight: 400"
-                      @click.stop="handleLabel(tag)" v-for="tag in item.displayTags" :key="tag.id">{{ tag.name
+                    <el-button type="info" size="small" plain round
+                      style="border: 1px solid var(--wy-border-subtle, #e4e7ed); font-weight: 400" @click.stop="handleLabel(tag)"
+                      v-for="tag in item.displayTags" :key="tag.id">{{ tag.name
                       }}</el-button>
                   </div>
                 </div>
@@ -71,9 +72,10 @@
 
             <!-- 空状态 -->
             <div v-if="articleList.length === 0 && !loading" class="wy-empty-state">
-              <IconifyIcon icon="material-symbols-light:bookmark-star-outline" width="64" height="64" color="#dcdfe6">
+              <IconifyIcon icon="material-symbols-light:bookmark-star-outline" width="64" height="64"
+                color="var(--wy-text-placeholder, #dcdfe6)">
               </IconifyIcon>
-              <p style="margin-top: 15px; color: #909399; font-size: 16px">{{ t('bookmarks.empty') }}</p>
+              <p style="margin-top: 15px; color: var(--wy-text-tertiary, #71717a); font-size: 16px">{{ t('bookmarks.empty') }}</p>
               <el-button type="primary" round style="margin-top: 15px" @click="goHome">{{ t('list.view.browse')
               }}</el-button>
             </div>

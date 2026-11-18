@@ -54,6 +54,25 @@ export const updateNav = (data: { id: number; label: string; type: string; value
 }
 
 /**
+ * 更新导航显示状态
+ * @param id 导航ID
+ * @param status 状态值：1=显示，0=隐藏
+ * @returns Promise<any> 返回更新后的导航项
+ */
+export const updateNavStatus = (id: number, status: 0 | 1) => {
+  const formData = new FormData()
+  formData.append('status', String(status))
+  return request({
+    url: `/admin/navs/status/${id}`,
+    method: 'POST',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+/**
  * 更新导航排序
  * @param data 导航排序数据
  * @returns Promise<any>

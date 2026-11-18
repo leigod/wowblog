@@ -147,11 +147,13 @@ const handleSubmit = async () => {
 .page-title {
   margin: 0 0 8px;
   font-size: 22px;
+  font-weight: 600;
+  color: var(--wy-text-primary, var(--el-text-color-primary));
 }
 
 .page-subtitle {
   margin: 0;
   font-size: 14px;
-  color: #86909c;
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
 }
 </style>

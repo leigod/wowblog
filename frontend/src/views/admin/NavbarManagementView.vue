@@ -8,19 +8,27 @@
       <el-button type="primary" size="default" class="add-button" @click="openDrawer">
         <el-icon>
           <Plus />
-        </el-icon> {{ t('admin.navbar.btn.add') }}
+        </el-icon>
+        {{ t('admin.navbar.btn.add') }}
       </el-button>
     </div>
 
     <!-- Navigation Items Table -->
     <div class="navbar-table-container">
       <!-- 桌面端表格 -->
-      <el-table v-if="!isMobile" ref="navbarTable" :data="navbarItems" class="navbar-table" :header-cell-style="{
-        backgroundColor: '#fafafa',
-        fontWeight: 800,
-        fontSize: '1rem',
-        padding: '12px 14px'
-      }" :row-key="(row) => row.id">
+      <el-table
+        v-if="!isMobile"
+        ref="navbarTable"
+        :data="navbarItems"
+        class="navbar-table"
+        :header-cell-style="{
+          backgroundColor: '#fafafa',
+          fontWeight: 800,
+          fontSize: '1rem',
+          padding: '12px 14px'
+        }"
+        :row-key="(row) => row.id"
+      >
         <el-table-column :label="t('admin.navbar.table.sort')" width="100" align="center">
           <template #default>
             <div class="allow-drag" style="cursor: move">
@@ -38,8 +46,43 @@
             <span v-else class="page-series-value">{{ row.valueLabel }}</span>
           </template>
         </el-table-column>
+        <el-table-column prop="status" :label="t('admin.navbar.table.status')">
+          <template #default="{ row }">
+            <el-tag :type="row.status ? 'success' : 'danger'" size="small">
+              {{
+                row.status
+                  ? t('admin.navbar.table.status_text.normal')
+                  : t('admin.navbar.table.status_text.hidden')
+              }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('admin.navbar.table.actions')">
           <template #default="{ row }">
+            <el-tooltip
+              :content="
+                row.status
+                  ? t('admin.navbar.table.status_text.hidden')
+                  : t('admin.navbar.table.status_text.normal')
+              "
+              placement="top"
+            >
+              <el-button
+                type="default"
+                circle
+                text
+                @click="handleToggleVisibility(row)"
+                v-if="row.type != 'Link' && row.value != '/'"
+              >
+                <IconifyIcon
+                  :icon="row.status ? 'clarity:eye-show-solid' : 'clarity:eye-hide-solid'"
+                  stroke-width="0.1"
+                  :color="row.status ? '#409eff' : '#909399'"
+                  width="20"
+                  height="20"
+                />
+              </el-button>
+            </el-tooltip>
             <el-dropdown trigger="click">
               <el-button type="default" size="small" text circle class="action-button">
                 <el-icon>
@@ -51,12 +94,18 @@
                   <el-dropdown-item @click="handleEdit(row)">
                     <el-icon>
                       <Edit />
-                    </el-icon> {{ t('admin.general.btn.edit') }}
+                    </el-icon>
+                    {{ t('admin.general.btn.edit') }}
                   </el-dropdown-item>
-                  <el-dropdown-item @click="handleDelete(row)" class="danger" v-if="row.nav_type !== 'sys'">
+                  <el-dropdown-item
+                    @click="handleDelete(row)"
+                    class="danger"
+                    v-if="row.nav_type !== 'sys'"
+                  >
                     <el-icon>
                       <Delete />
-                    </el-icon> {{ t('admin.general.btn.delete') }}
+                    </el-icon>
+                    {{ t('admin.general.btn.delete') }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -91,17 +140,25 @@
             <el-button size="small" @click="handleEdit(row)" v-if="row.nav_type !== 'sys'">
               <el-icon>
                 <Edit />
-              </el-icon> {{ t('admin.general.btn.edit') }}
+              </el-icon>
+              {{ t('admin.general.btn.edit') }}
             </el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)" v-if="row.nav_type !== 'sys'">
+            <el-button
+              size="small"
+              type="danger"
+              @click="handleDelete(row)"
+              v-if="row.nav_type !== 'sys'"
+            >
               <el-icon>
                 <Delete />
-              </el-icon> {{ t('admin.general.btn.delete') }}
+              </el-icon>
+              {{ t('admin.general.btn.delete') }}
             </el-button>
             <el-button size="small" disabled v-else>
               <el-icon>
                 <Lock />
-              </el-icon> 系统项
+              </el-icon>
+              系统项
             </el-button>
           </div>
         </el-card>
@@ -118,21 +175,39 @@
     </div>
 
     <!-- Drawer Form -->
-    <el-drawer v-model="drawerVisible"
-      :title="`${isEditing ? t('admin.navbar.form.edit_title') : t('admin.navbar.form.add_title')}`" :size="drawerSize"
-      direction="rtl" @close="closeDrawer">
-      <el-form ref="formRef" :model="formData" :rules="formRules" :label-width="formLabelConfig.labelWidth"
-        :label-position="formLabelConfig.labelPosition" class="navbar-form">
+    <el-drawer
+      v-model="drawerVisible"
+      :title="`${isEditing ? t('admin.navbar.form.edit_title') : t('admin.navbar.form.add_title')}`"
+      :size="drawerSize"
+      direction="rtl"
+      @close="closeDrawer"
+    >
+      <el-form
+        ref="formRef"
+        :model="formData"
+        :rules="formRules"
+        :label-width="formLabelConfig.labelWidth"
+        :label-position="formLabelConfig.labelPosition"
+        class="navbar-form"
+      >
         <!-- Item Label -->
         <el-form-item :label="t('admin.navbar.form.label')" prop="label">
-          <el-input v-model="formData.label" :placeholder="t('admin.navbar.form.label_placeholder')"
-            class="form-input" />
+          <el-input
+            v-model="formData.label"
+            :placeholder="t('admin.navbar.form.label_placeholder')"
+            class="form-input"
+          />
         </el-form-item>
 
         <!-- Type Selection -->
         <el-form-item :label="t('admin.navbar.form.type')" prop="type">
-          <el-select v-model="formData.type" :placeholder="t('admin.navbar.form.type_placeholder')" class="form-select"
-            @change="handleTypeChange" :disabled="formData.nav_type == 'sys'">
+          <el-select
+            v-model="formData.type"
+            :placeholder="t('admin.navbar.form.type_placeholder')"
+            class="form-select"
+            @change="handleTypeChange"
+            :disabled="formData.nav_type == 'sys'"
+          >
             <el-option :label="t('admin.navbar.form.type_link')" value="link" />
             <el-option :label="t('admin.navbar.form.type_page')" value="page" />
             <el-option :label="t('admin.navbar.form.type_series')" value="series" />
@@ -143,30 +218,60 @@
         <!-- Dynamic Value Field -->
         <el-form-item :label="t('admin.navbar.form.value')" prop="value" :rules="valueRules">
           <!-- Link Type - URL Input -->
-          <el-input v-if="formData.type === 'link'" v-model="formData.value"
-            :placeholder="t('admin.navbar.form.value_placeholder')" class="form-input"
-            :disabled="formData.nav_type == 'sys'" />
+          <el-input
+            v-if="formData.type === 'link'"
+            v-model="formData.value"
+            :placeholder="t('admin.navbar.form.value_placeholder')"
+            class="form-input"
+            :disabled="formData.nav_type == 'sys'"
+          />
 
           <!-- Page Type - Dropdown -->
-          <el-select v-else-if="formData.type === 'page'" v-model="formData.value"
-            :placeholder="t('admin.navbar.form.page_placeholder')" class="form-select"
-            :disabled="formData.nav_type == 'sys'">
-            <el-option v-for="page in availablePages" :key="page.id" :label="page.title" :value="page.id" />
+          <el-select
+            v-else-if="formData.type === 'page'"
+            v-model="formData.value"
+            :placeholder="t('admin.navbar.form.page_placeholder')"
+            class="form-select"
+            :disabled="formData.nav_type == 'sys'"
+          >
+            <el-option
+              v-for="page in availablePages"
+              :key="page.id"
+              :label="page.title"
+              :value="page.id"
+            />
           </el-select>
 
           <!-- Series Type - Dropdown -->
-          <el-select v-else-if="formData.type === 'series'" v-model="formData.value"
-            :placeholder="t('admin.navbar.form.series_placeholder')" class="form-select"
-            :disabled="formData.nav_type == 'sys'">
-            <el-option v-for="series in availableSeries" :key="series.id" :label="series.name" :value="series.id" />
+          <el-select
+            v-else-if="formData.type === 'series'"
+            v-model="formData.value"
+            :placeholder="t('admin.navbar.form.series_placeholder')"
+            class="form-select"
+            :disabled="formData.nav_type == 'sys'"
+          >
+            <el-option
+              v-for="series in availableSeries"
+              :key="series.id"
+              :label="series.name"
+              :value="series.id"
+            />
           </el-select>
 
           <!-- Doc Type - Dropdown -->
-          <el-select v-else-if="formData.type === 'doc'" v-model="formData.value"
-            :placeholder="t('admin.navbar.form.doc_placeholder')" class="form-select"
-            :disabled="formData.nav_type == 'sys'">
-            <el-option v-for="docBook in availableDocBooks" :key="docBook.id"
-              :label="`${docBook.name} (${docBook.slug})`" :value="String(docBook.id)" />
+          <el-select
+            v-else-if="formData.type === 'doc'"
+            v-model="formData.value"
+            :placeholder="t('admin.navbar.form.doc_placeholder')"
+            class="form-select"
+            :disabled="formData.nav_type == 'sys'"
+          >
+            <el-option
+              v-for="docBook in availableDocBooks"
+              :key="docBook.id"
+              :label="`${docBook.name} (${docBook.slug})`"
+              :value="String(docBook.id)"
+            />
           </el-select>
         </el-form-item>
       </el-form>
@@ -211,6 +316,7 @@ import {
   createNav,
   updateNav,
   updateNavSort,
+  updateNavStatus,
   deleteNav
 } from '@/api/services/nav'
 import { getManagePageList } from '@/api/services/pages'
@@ -225,6 +331,7 @@ interface NavbarItem {
   nav_type: 'sys' | 'user'
   type: 'link' | 'page' | 'series' | 'doc'
   value: string
+  status: number
   valueLabel?: string
 }
 
@@ -254,7 +361,7 @@ const navbarItems = ref<NavbarItem[]>([])
 let sortableInstance: Sortable | null = null
 
 // 响应式抽屉宽度
-const drawerSize = computed(() => isMobile.value ? '100%' : '50%')
+const drawerSize = computed(() => (isMobile.value ? '100%' : '50%'))
 
 // 响应式表单标签配置
 const formLabelConfig = computed(() => ({
@@ -345,11 +452,11 @@ const valueRules = computed((): FormItemRule[] => {
   const urlRule: FormItemRule | null =
     formData.type === 'link'
       ? {
-        type: 'url' as const,
-        required: true,
-        message: t('admin.navbar.validation.link'),
-        trigger: 'blur'
-      }
+          type: 'url' as const,
+          required: true,
+          message: t('admin.navbar.validation.link'),
+          trigger: 'blur'
+        }
       : null
 
   return [requiredRule, ...(urlRule ? [urlRule] : [])]
@@ -488,6 +595,20 @@ const handleDelete = (item: NavbarItem) => {
     })
 }
 
+// 切换导航显示/隐藏状态（1=显示，0=隐藏）
+const handleToggleVisibility = (item: NavbarItem) => {
+  const newStatus: 0 | 1 = item.status ? 0 : 1
+  updateNavStatus(Number(item.id), newStatus)
+    .then(() => {
+      item.status = newStatus
+      ElMessage.success(t('admin.navbar.action.update.status.success'))
+    })
+    .catch((err) => {
+      console.error(t('admin.navbar.action.update.status.error'), err)
+      ElMessage.error(t('admin.navbar.action.update.status.error'))
+    })
+}
+
 const handleTypeChange = () => {
   formData.value = ''
 }
@@ -524,6 +645,7 @@ const submitForm = async () => {
               nav_type: res.data.nav_type,
               type: res.data.type,
               value: res.data.value,
+              status: res.data.status,
               valueLabel: getValueLabel(res.data.type!, res.data.value)
             }
             navbarItems.value.splice(index, 1, updatedItem2)
@@ -552,6 +674,7 @@ const submitForm = async () => {
             nav_type: res.data.nav_type,
             type: res.data.type,
             value: res.data.value,
+            status: res.data.status,
             valueLabel: getValueLabel(res.data.type!, res.data.value)
           }
           navbarItems.value.push(newItem2)

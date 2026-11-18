@@ -98,15 +98,35 @@ export const getBlogStats = (article_ids: string[]) => {
  * @param limit 文章数量
  * @returns
  */
-export const getRecentBlog = (limit: number = 7) => {
+export const getRecentBlog = (limit: number = 8) => {
   if (limit <= 0) {
-    limit = 7
+    limit = 8
   }
   if (limit > 20) {
     limit = 20
   }
   return request({
     url: `/blog/articles/recent?limit=${limit}`,
+    method: 'GET'
+  })
+}
+
+/**
+ * 获取编辑推荐文章（首页上部）
+ * 后端按「置顶+加精 → 加精 → 推荐 → 高阅读」降级链取数，
+ * 每篇带 editorial_source 标记命中层级，便于运营核对。
+ * @param limit 文章数量
+ * @returns
+ */
+export const getEditorialArticles = (limit: number = 5) => {
+  if (limit <= 0) {
+    limit = 5
+  }
+  if (limit > 10) {
+    limit = 10
+  }
+  return request({
+    url: `/blog/articles/editorial?limit=${limit}`,
     method: 'GET'
   })
 }

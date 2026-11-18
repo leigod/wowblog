@@ -48,7 +48,12 @@ export default {
         preview: '预览',
         cancel: '取消',
         restore: '恢复',
-        permanently_delete: '永久删除'
+        permanently_delete: '永久删除',
+        set_sort: '设置排序',
+        sort_prompt: '输入排序权重（仅影响平台维度的展示顺序）',
+        sort_invalid: '请输入整数',
+        sort_success: '排序已更新',
+        sort_error: '排序更新失败'
       }
     },
     empty: {
@@ -125,6 +130,38 @@ export default {
       cancel: '取消',
       success: '文章删除成功。',
       error: '删除文章失败。'
+    },
+    restore: {
+      title: '恢复文章',
+      description: '确认恢复这篇文章吗？文章将转为草稿。',
+      confirm: '恢复',
+      cancel: '取消',
+      success: '文章恢复成功。',
+      error: '恢复文章失败。'
+    },
+    soft_delete: {
+      title: '删除文章',
+      description: '确认删除这篇文章吗？文章将移入回收站，可随时恢复。',
+      confirm: '删除',
+      cancel: '取消',
+      success: '文章已移入回收站。',
+      error: '删除文章失败。'
+    },
+    permanent_delete: {
+      title: '永久删除文章',
+      description: '确认永久删除这篇文章吗？此操作无法撤销！',
+      confirm: '永久删除',
+      cancel: '取消',
+      success: '文章已永久删除。',
+      error: '永久删除文章失败。'
+    },
+    cancel: {
+      title: '取消定时发布',
+      description: '确认取消这篇文章的定时发布吗？文章将转为草稿。',
+      confirm: '取消定时',
+      cancel: '保留定时',
+      success: '已取消定时发布，文章转为草稿。',
+      error: '取消定时发布失败。'
     },
     update: {
       status: {

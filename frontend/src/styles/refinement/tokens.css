@@ -1,0 +1,211 @@
+/* ============================================================
+   WOW Blog · 视觉精修 / 第 1 层：设计 token + Element Plus 主题覆盖
+   ------------------------------------------------------------
+   实现方式：运行时 CSS 变量覆盖，不编译 SCSS、不改构建配置。
+   生效条件：<html class="wy-refine">（由 index.html 声明）
+   回滚方式：去掉 html 上的 wy-refine，或注释掉 main.ts 的 import。
+   层级：本文件所有规则都带 html.wy-refine 前缀，优先级高于组件
+        scoped 样式；深色用 html.wy-refine.dark 保证覆盖 EP 自带 dark。
+   ============================================================ */
+
+html.wy-refine {
+  /* ---------- 品牌主色（替换 EP 默认 #409eff） ---------- */
+  --el-color-primary: #2f5fd0;
+  --el-color-primary-light-3: #6d8fde;
+  --el-color-primary-light-5: #97afe8;
+  --el-color-primary-light-7: #c1cff1;
+  --el-color-primary-light-8: #d5dff6;
+  --el-color-primary-light-9: #eef3fd;
+  --el-color-primary-dark-2: #254fae;
+
+  /* ---------- 语义色 ---------- */
+  --el-color-success: #2e7d5b;
+  --el-color-success-light-3: #6aa88b;
+  --el-color-success-light-5: #97c3ac;
+  --el-color-success-light-7: #c4ddcf;
+  --el-color-success-light-8: #d9e9e0;
+  --el-color-success-light-9: #eef7f2;
+  --el-color-success-dark-2: #256448;
+
+  --el-color-warning: #b7791f;
+  --el-color-warning-light-3: #cea364;
+  --el-color-warning-light-5: #dbba8f;
+  --el-color-warning-light-7: #edd9bd;
+  --el-color-warning-light-8: #f4e7d5;
+  --el-color-warning-light-9: #fbf5ec;
+  --el-color-warning-dark-2: #926119;
+
+  --el-color-danger: #c0392b;
+  --el-color-danger-light-3: #d47a70;
+  --el-color-danger-light-5: #e09c95;
+  --el-color-danger-light-7: #efc9c5;
+  --el-color-danger-light-8: #f6dedb;
+  --el-color-danger-light-9: #fdf1f0;
+  --el-color-danger-dark-2: #992f22;
+
+  --el-color-info: #71717a;
+  --el-color-info-light-3: #9c9ca3;
+  --el-color-info-light-5: #b8b8bd;
+  --el-color-info-light-7: #d7d7da;
+  --el-color-info-light-8: #e4e4e7;
+  --el-color-info-light-9: #f4f4f5;
+  --el-color-info-dark-2: #5a5a62;
+
+  /* ---------- 文字 ---------- */
+  --el-text-color-primary: #18181b;
+  --el-text-color-regular: #52525b;
+  --el-text-color-secondary: #71717a;
+  --el-text-color-placeholder: #a1a1aa;
+  --el-text-color-disabled: #c4c4c9;
+
+  /* ---------- 边框 / 填充 / 背景 ---------- */
+  --el-border-color: #d4d4d8;
+  --el-border-color-light: #e4e4e7;
+  --el-border-color-lighter: #ededf0;
+  --el-border-color-extra-light: #f4f4f5;
+  --el-border-color-darker: #a1a1aa;
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color-light: #f5f5f5;
+  --el-fill-color: #f0f0f2;
+  --el-fill-color-dark: #e4e4e7;
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #fafafa;
+  --el-bg-color-overlay: #ffffff;
+
+  /* ---------- 形状 / 字体 / 动效 ---------- */
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 4px;
+  --el-border-radius-round: 999px;
+  --el-border-radius-circle: 50%;
+  --el-font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --el-font-size-base: 14px;
+  --el-font-size-small: 12px;
+  --el-box-shadow-light: 0 4px 16px rgba(24, 24, 27, 0.06);
+  --el-box-shadow: 0 4px 16px rgba(24, 24, 27, 0.06);
+  --el-transition-duration: 0.16s;
+  --el-transition-duration-fast: 0.16s;
+
+  /* ---------- 菜单（含多级 popper，深浅两套底色） ---------- */
+  --el-menu-bg-color: #ffffff;
+  --el-menu-text-color: #52525b;
+  --el-menu-active-color: #2f5fd0;
+  --el-menu-hover-text-color: #18181b;
+  --el-menu-hover-bg-color: #f5f5f5;
+  --el-menu-border-color: #e4e4e7;
+  --el-menu-item-height: 56px;
+  --el-menu-sub-item-height: 36px;
+
+  /* ---------- 卡片 ---------- */
+  --el-card-bg-color: #ffffff;
+  --el-card-border-color: #e4e4e7;
+  --el-card-border-radius: 8px;
+  --el-card-padding: 20px;
+
+  /* ---------- 项目语义 token（供 refine.css 与后续组件使用） ---------- */
+  --wy-bg-canvas: #fafafa;
+  --wy-bg-surface: #ffffff;
+  --wy-bg-muted: #f5f5f5;
+  --wy-text-primary: #18181b;
+  --wy-text-secondary: #52525b;
+  --wy-text-tertiary: #71717a;
+  --wy-text-placeholder: #a1a1aa;
+  --wy-border-subtle: #e4e4e7;
+  --wy-border-strong: #d4d4d8;
+  --wy-brand: #2f5fd0;
+  --wy-brand-hover: #254fae;
+  --wy-brand-soft: #eef3fd;
+  /* 品牌色实底上的文字：浅色用白、深色用近黑（深色主色是浅蓝） */
+  --wy-on-brand: #ffffff;
+  --wy-featured-bg: #fdf1f0;
+  --wy-featured-fg: #c0392b;
+  --wy-bookmark-on: #b7791f;
+  --wy-bookmark-off: #71717a;
+  --wy-radius-sm: 4px;
+  --wy-radius-md: 8px;
+  --wy-radius-lg: 12px;
+  --wy-radius-pill: 999px;
+  --wy-space-2: 8px;
+  --wy-space-3: 12px;
+  --wy-space-4: 16px;
+  --wy-space-6: 24px;
+  --wy-space-8: 32px;
+  --wy-duration: 160ms;
+  --wy-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --wy-shadow-pop: 0 4px 16px rgba(24, 24, 27, 0.06);
+  /* 卡片两级：静置极轻、hover 抬升一档。其它页面原先各写一套
+     （0.05 / 0.06 / 0.1 / 0.15 黑混用），统一到这里。 */
+  --wy-shadow-card: 0 2px 12px rgba(24, 24, 27, 0.06);
+  --wy-shadow-card-hover: 0 4px 16px rgba(24, 24, 27, 0.1);
+  --wy-font-sans: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --wy-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ============================================================
+   深色模式：与现有 html.dark 开关叠加，不新增第二套开关
+   ============================================================ */
+html.wy-refine.dark {
+  --el-color-primary: #7c9bf5;
+  --el-color-primary-light-3: #6280d8;
+  --el-color-primary-light-5: #4a66b4;
+  --el-color-primary-light-7: #34488a;
+  --el-color-primary-light-8: #293a70;
+  --el-color-primary-light-9: #1d2740;
+  --el-color-primary-dark-2: #9db3f8;
+
+  --el-color-success: #4fa983;
+  --el-color-warning: #d0a04a;
+  --el-color-danger: #e0705f;
+  --el-color-info: #a1a1aa;
+
+  --el-text-color-primary: #f4f4f5;
+  --el-text-color-regular: #d4d4d8;
+  --el-text-color-secondary: #a1a1aa;
+  --el-text-color-placeholder: #8a8a93;
+  --el-text-color-disabled: #63636b;
+
+  --el-border-color: #3a3a42;
+  --el-border-color-light: #2e2e33;
+  --el-border-color-lighter: #292930;
+  --el-border-color-extra-light: #232327;
+  --el-border-color-darker: #52525b;
+  --el-fill-color-blank: #1a1a1e;
+  --el-fill-color-light: #232327;
+  --el-fill-color: #2a2a30;
+  --el-fill-color-dark: #333338;
+  --el-bg-color: #1a1a1e;
+  --el-bg-color-page: #111113;
+  --el-bg-color-overlay: #1a1a1e;
+
+  --el-menu-bg-color: #1a1a1e;
+  --el-menu-text-color: #d4d4d8;
+  --el-menu-active-color: #9db3f8;
+  --el-menu-hover-bg-color: #232327;
+  --el-menu-border-color: #2e2e33;
+  --el-card-bg-color: #1a1a1e;
+  --el-card-border-color: #2e2e33;
+  --el-box-shadow-light: 0 4px 16px rgba(0, 0, 0, 0.32);
+  --el-box-shadow: 0 4px 16px rgba(0, 0, 0, 0.32);
+
+  --wy-bg-canvas: #111113;
+  --wy-bg-surface: #1a1a1e;
+  --wy-bg-muted: #232327;
+  --wy-text-primary: #f4f4f5;
+  --wy-text-secondary: #d4d4d8;
+  --wy-text-tertiary: #a1a1aa;
+  --wy-text-placeholder: #71717a;
+  --wy-border-subtle: #2e2e33;
+  --wy-border-strong: #3a3a42;
+  --wy-brand: #9db3f8;
+  --wy-brand-hover: #c2d0fb;
+  --wy-brand-soft: #1d2740;
+  --wy-on-brand: #111113;
+  --wy-featured-bg: #3a2020;
+  --wy-featured-fg: #f09a8c;
+  --wy-bookmark-on: #d0a04a;
+  --wy-bookmark-off: #a1a1aa;
+  --wy-shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.32);
+  --wy-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.32);
+  --wy-shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.42);
+}

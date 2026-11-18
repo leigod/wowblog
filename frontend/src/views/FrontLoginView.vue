@@ -1,10 +1,9 @@
 <template>
   <div class="front-login-container">
-    <!-- 背景装饰 -->
+    <!-- 背景装饰：品牌色静态光晕（替代旧紫色渐变 + 浮动圆动画） -->
     <div class="login-background">
-      <div class="bg-circle circle-1"></div>
-      <div class="bg-circle circle-2"></div>
-      <div class="bg-circle circle-3"></div>
+      <div class="bg-glow glow-1"></div>
+      <div class="bg-glow glow-2"></div>
     </div>
 
     <!-- 登录卡片 -->
@@ -12,6 +11,11 @@
       <el-card class="login-card" shadow="always">
         <!-- Logo / 网站名称 -->
         <div class="login-header">
+          <!-- 品牌 favicon：点击回网站首页 -->
+          <div class="brand-mark" @click="$router.push('/')">
+            <img v-if="appStore.site_favicon" :src="appStore.site_favicon" alt="首页" class="brand-logo" :title="appStore.site_title" />
+            <template v-else>{{ (appStore.site_title || $t('login.title') || 'W').trim().charAt(0).toUpperCase() }}</template>
+          </div>
           <h1 class="site-title">{{ appStore.site_title || $t('login.title') }}</h1>
           <p class="site-subtitle">{{ $t('login.subtitle') }}</p>
         </div>
@@ -310,6 +314,17 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ============================================================
+   登录页视觉精修（第十一轮后续）
+   ------------------------------------------------------------
+   结构不变（单卡居中），只换视觉语言：
+   ① 旧紫色渐变 #667eea→#764ba2 → 浅画布 + 品牌色静态光晕；
+   ② 删除三个浮动圆与 float 动画（装饰交给光晕，不再动）；
+   ③ 卡片 16px 圆角 + 0.3 黑重阴影 → radius-lg + card-hover 阴影 + 描边；
+   ④ 新增品牌标记（站点 logo 优先，回退站点名首字）作色彩锚点；
+   ⑤ 社交图标 #999/#666 → tertiary / brand hover 层级。
+   全部走 --wy-* token（带 EP fallback），深色由变量自动跟随。
+   ============================================================ */
 .front-login-container {
   min-height: 100vh;
   display: flex;
@@ -317,59 +332,46 @@ onMounted(() => {
   justify-content: center;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--wy-bg-canvas, var(--el-bg-color-page, #fafafa));
 }
 
-/* 背景装饰 */
+/* 背景：两团品牌色静态光晕 */
 .login-background {
   position: absolute;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   overflow: hidden;
   z-index: 0;
 }
 
-.bg-circle {
+.bg-glow {
   position: absolute;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  animation: float 6s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.circle-1 {
-  width: 300px;
-  height: 300px;
-  top: -100px;
-  left: -100px;
-  animation-delay: 0s;
+.glow-1 {
+  width: 720px;
+  height: 720px;
+  top: -280px;
+  left: -220px;
+  background: radial-gradient(circle, rgba(47, 95, 208, 0.1) 0%, rgba(47, 95, 208, 0) 70%);
 }
 
-.circle-2 {
-  width: 200px;
-  height: 200px;
-  bottom: -50px;
-  right: -50px;
-  animation-delay: 2s;
+.glow-2 {
+  width: 560px;
+  height: 560px;
+  bottom: -240px;
+  right: -180px;
+  background: radial-gradient(circle, rgba(47, 95, 208, 0.07) 0%, rgba(47, 95, 208, 0) 70%);
 }
 
-.circle-3 {
-  width: 150px;
-  height: 150px;
-  top: 50%;
-  right: 10%;
-  animation-delay: 4s;
+/* 深色下光晕跟随深色主色 #9db3f8 */
+html.dark .glow-1 {
+  background: radial-gradient(circle, rgba(157, 179, 248, 0.12) 0%, rgba(157, 179, 248, 0) 70%);
 }
 
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  50% {
-    transform: translateY(-20px) rotate(10deg);
-  }
+html.dark .glow-2 {
+  background: radial-gradient(circle, rgba(157, 179, 248, 0.09) 0%, rgba(157, 179, 248, 0) 70%);
 }
 
 /* 登录卡片 */
@@ -381,11 +383,11 @@ onMounted(() => {
   padding: 20px;
 }
 
-.login-card {
-  border-radius: 16px;
+.login-card.el-card {
+  border-radius: var(--wy-radius-lg, 12px);
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  border: none;
+  box-shadow: var(--wy-shadow-card-hover, 0 4px 16px rgba(24, 24, 27, 0.1));
+  border: 1px solid var(--wy-border-subtle, #e4e4e7);
 }
 
 :deep(.el-card__body) {
@@ -398,16 +400,41 @@ onMounted(() => {
   margin-bottom: 32px;
 }
 
+/* 品牌标记：站点 logo 优先，回退站点名首字；主色实底 + on-brand 文字 */
+.brand-mark {
+  cursor: pointer;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: var(--wy-radius-md, 8px);
+  background: transparent;
+  color: var(--wy-brand, #2f5fd0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+  user-select: none;
+}
+
+.brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .site-title {
   font-size: 28px;
   font-weight: 700;
   margin: 0 0 8px 0;
-  color: var(--el-text-color-primary);
+  color: var(--wy-text-primary, var(--el-text-color-primary));
 }
 
 .site-subtitle {
   font-size: 14px;
-  color: var(--el-text-color-secondary);
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
   margin: 0;
 }
 
@@ -427,7 +454,7 @@ onMounted(() => {
   height: 44px;
   font-size: 16px;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: var(--wy-radius-md, 8px);
 }
 
 /* 分割线 */
@@ -436,7 +463,7 @@ onMounted(() => {
   align-items: center;
   text-align: center;
   margin: 24px 0;
-  color: var(--el-text-color-secondary);
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
   font-size: 13px;
 }
 
@@ -444,7 +471,7 @@ onMounted(() => {
 .divider::after {
   content: '';
   flex: 1;
-  border-bottom: 1px solid var(--el-border-color);
+  border-bottom: 1px solid var(--wy-border-subtle, var(--el-border-color));
 }
 
 .divider span {
@@ -473,13 +500,14 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: all 0.2s ease;
-  color: #999;
+  border-radius: var(--wy-radius-md, 8px);
+  color: var(--wy-text-tertiary, #71717a);
+  transition: all 0.16s var(--wy-easing, ease);
 }
 
 .social-icon-btn:hover {
-  color: #666;
-  transform: scale(1.1);
+  color: var(--wy-brand, #2f5fd0);
+  background: var(--wy-brand-soft, #eef3fd);
 }
 
 .social-icon-btn :deep(.iconify) {
@@ -491,7 +519,7 @@ onMounted(() => {
 .register-tip {
   text-align: center;
   font-size: 14px;
-  color: var(--el-text-color-secondary);
+  color: var(--wy-text-secondary, var(--el-text-color-secondary));
 }
 
 /* 后台登录链接 */

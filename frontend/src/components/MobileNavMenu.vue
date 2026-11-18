@@ -16,6 +16,11 @@
       <!-- 子菜单（递归） -->
       <transition name="expand">
         <div v-if="item.children && item.children.length > 0 && expandedItems[item.id]" class="nav-children">
+          <!-- 父级本身可点：给一个「全部」入口，手机上才进得去索引页 -->
+          <div v-if="item.url" class="nav-all" @click.stop="emit('item-click', item)">
+            <span class="nav-label">{{ $t('navbar.view_all') }}</span>
+            <el-icon><ArrowRight /></el-icon>
+          </div>
           <MobileNavMenu :nav-items="item.children" :depth="depth + 1" @item-click="handleChildClick" />
         </div>
       </transition>
@@ -110,6 +115,25 @@ const handleChildClick = (item: NavItem) => {
       margin-top: 4px;
       margin-bottom: 4px;
       overflow: hidden;
+
+      .nav-all {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        font-size: 13px;
+        color: var(--el-color-primary);
+        cursor: pointer;
+        border-bottom: 1px solid var(--el-border-color-lighter);
+
+        &:hover {
+          background-color: var(--el-menu-hover-bg-color);
+        }
+
+        .el-icon {
+          font-size: 12px;
+        }
+      }
     }
 
     &.has-children {

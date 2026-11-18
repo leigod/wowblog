@@ -49,6 +49,14 @@ class SiteConfig(Base):
     enable_register: Mapped[int] = mapped_column(Integer, default=1, comment='是否开启注册，0=不开启，1=开启')
     register_role: Mapped[str] = mapped_column(String(20), default='User', comment='用户注册默认角色')
 
+    # 文章审核配置
+    # 审核总开关：开启时 Author 发布固定为草稿（发布状态选择隐藏），由 Admin/Editor 放行
+    article_review_enabled: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        server_default='1',
+        comment='文章审核开关：1=开启（作者发布固定草稿待审核），0=关闭（作者可选发布状态）'
+    )
     # 文章审核通知配置
     enable_article_review_notification: Mapped[int] = mapped_column(
         Integer,

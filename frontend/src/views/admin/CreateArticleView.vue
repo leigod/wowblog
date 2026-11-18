@@ -34,12 +34,12 @@
       </div>
       <!-- 标题和副标题区域 -->
       <div class="article-title-area">
-        <textarea maxlength="150" v-model="articleTitle" :placeholder="t('article_editor.title_placeholder')"
-          class="article-title-input" rows="1" style="height: 60px !important"></textarea>
+        <textarea ref="titleInputRef" maxlength="150" v-model="articleTitle" :placeholder="t('article_editor.title_placeholder')"
+          class="article-title-input" rows="1"></textarea>
       </div>
       <div v-if="showSubtitle" class="subtitle-container">
-        <textarea v-model="articleSubtitle" :placeholder="t('article_editor.subtitle_placeholder')"
-          class="article-subtitle-input" maxlength="150" style="height: 53px !important"></textarea>
+        <textarea ref="subtitleInputRef" v-model="articleSubtitle" :placeholder="t('article_editor.subtitle_placeholder')"
+          class="article-subtitle-input" maxlength="150"></textarea>
         <el-button :icon="Close" class="delete-subtitle-btn" @click="toggleSubtitle"></el-button>
       </div>
 
@@ -66,7 +66,8 @@
         </template>
         <el-form ref="publishFormRef" :model="publishForm" :rules="publishFormRules" label-width="100px"
           label-position="top" size="large">
-          <el-form-item :label="t('article_editor.category')" class="form-label" prop="category">
+          <!-- 平台分类/系列（非 creator 模式；creator 下由审核者定，不选） -->
+          <el-form-item v-if="!isCreatorMode" :label="t('article_editor.category')" class="form-label" prop="category">
             <el-tree-select v-model="publishForm.category" :data="categoryTreeData" :render-after-expand="false"
               :default-expand-all="true" :check-strictly="true" :props="{
                 label: 'label',
@@ -74,9 +75,24 @@
                 children: 'children'
               }" :placeholder="t('article_editor.select_category')" />
           </el-form-item>
-          <el-form-item :label="t('article_editor.series')" class="form-label" v-if="seriesList.length > 0">
+          <el-form-item
+            v-if="!isCreatorMode && seriesList.length > 0"
+            :label="t('article_editor.series')"
+            class="form-label"
+          >
             <el-select v-model="publishForm.series" :placeholder="t('article_editor.select_series')">
               <el-option v-for="item in seriesList" :key="item.id" :label="item.name" :value="item.id" />
+            </el-select>
+          </el-form-item>
+          <!-- Blog 分类/系列（creator 模式；非必填，归属作者自己的 blog） -->
+          <el-form-item v-if="isCreatorMode" :label="t('article_editor.blog_category')" class="form-label">
+            <el-select v-model="publishForm.blogCategory" :placeholder="t('article_editor.blog_category_optional')" clearable>
+              <el-option v-for="item in blogCategories" :key="item.id" :label="item.name" :value="String(item.id)" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="isCreatorMode" :label="t('article_editor.blog_series')" class="form-label">
+            <el-select v-model="publishForm.blogSeries" :placeholder="t('article_editor.blog_series_optional')" clearable>
+              <el-option v-for="item in blogSeriesList" :key="item.id" :label="item.name" :value="String(item.id)" />
             </el-select>
           </el-form-item>
           <el-form-item :label="t('article_editor.author')" class="form-label" prop="author">
@@ -262,20 +278,31 @@
             </template>
           </el-form-item>
           <el-form-item :label="t('article_editor.status')" class="form-label">
-            <el-radio-group v-model="publishForm.status">
-              <el-radio label="draft" value="draft">{{ t('article_editor.status.draft') }}</el-radio>
-              <el-radio v-if="!isContributor" label="published" value="published">{{
-                t('article_editor.status.published')
-                }}</el-radio>
-              <el-radio v-if="!isContributor" label="scheduled" value="scheduled">{{
-                t('article_editor.status.scheduled')
-                }}</el-radio>
-            </el-radio-group>
-            <div v-if="isContributor" style="color: #909399; font-size: 12px; margin-top: 4px;">
-              {{ t('article_editor.contributor_draft_only') }}
-            </div>
+            <!-- creator 模式且站点审核开启：隐藏状态选择（固定草稿，由审核者放行） -->
+            <template v-if="isCreatorMode && reviewEnabled">
+              <el-radio-group :model-value="'draft'" disabled>
+                <el-radio label="draft" value="draft">{{ t('article_editor.status.draft') }}</el-radio>
+              </el-radio-group>
+              <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+                {{ t('article_editor.review_pending_hint') }}
+              </div>
+            </template>
+            <template v-else>
+              <el-radio-group v-model="publishForm.status">
+                <el-radio label="draft" value="draft">{{ t('article_editor.status.draft') }}</el-radio>
+                <el-radio v-if="!isContributor" label="published" value="published">{{
+                  t('article_editor.status.published')
+                  }}</el-radio>
+                <el-radio v-if="!isContributor" label="scheduled" value="scheduled">{{
+                  t('article_editor.status.scheduled')
+                  }}</el-radio>
+              </el-radio-group>
+              <div v-if="isContributor" style="color: #909399; font-size: 12px; margin-top: 4px;">
+                {{ t('article_editor.contributor_draft_only') }}
+              </div>
+            </template>
           </el-form-item>
-          <el-form-item v-if="publishForm.status === 'scheduled'" :label="t('article_editor.publish_date')"
+          <el-form-item v-if="publishForm.status === 'scheduled' && !(isCreatorMode && reviewEnabled)" :label="t('article_editor.publish_date')"
             class="form-label">
             <el-date-picker v-model="publishForm.publishDate" type="datetime"
               :placeholder="t('article_editor.select_datetime')" />
@@ -404,6 +431,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 
 // 根元素引用
 const rootElement = ref<HTMLElement | null>(null)
@@ -445,6 +473,10 @@ import { searchAuthors, searchCoAuthors } from '@/api/services/member'
 import { searchTagsFrontend } from '@/api/services/tags'
 import { addArticle, createArticle } from '@/api/services/articles'
 import { useAppStore } from '@/stores/app'
+import { useAutoTextarea } from '@/composables/useAutoTextarea'
+// Creator 模式（/creator/articles/create）：Author 发布时选自己 blog 的分类/系列，
+// 平台分类（审核者定）隐藏。Contributor/Admin 路径行为不变。
+import { getUserCategories, getUserSeriesList } from '@/api/services/creator'
 
 // 封面图片相关
 const coverImageUrl = ref('')
@@ -498,6 +530,11 @@ const articleTitle = ref('')
 const articleSubtitle = ref('')
 const showSubtitle = ref(false)
 const showSubtitleBtn = ref(true)
+// 长标题自动增高（编辑页回填/用户输入时重算），替代原写死的 60px/53px 内联高度
+const titleInputRef = ref<HTMLTextAreaElement | null>(null)
+const subtitleInputRef = ref<HTMLTextAreaElement | null>(null)
+useAutoTextarea(articleTitle, titleInputRef)
+useAutoTextarea(articleSubtitle, subtitleInputRef)
 
 // 目录相关
 const showArticleTOC = ref(false)
@@ -654,6 +691,20 @@ const handlePreview = () => {
         <title>Article Preview</title>
         <style>
           body { max-width: 1024px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif; }
+          .preview-notice {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 12px 16px;
+            background-color: #fdf6ec;
+            border: 1px solid #faecd8;
+            border-left: 4px solid #e6a23c;
+            border-radius: 6px;
+            color: #b88230;
+            font-size: 0.9rem;
+            line-height: 1.5;
+          }
           .cover-image { width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px; }
           .article-title { font-size: 2rem; font-weight: bold; margin-bottom: 10px; }
           .article-subtitle { font-size: 1.2rem; color: #666; margin-bottom: 30px; }
@@ -703,6 +754,7 @@ const handlePreview = () => {
         </style>
       </head>
       <body>
+        <div class="preview-notice">ℹ️ ${t('article_editor.preview_notice')}</div>
         ${coverImage}
         <h1 class="article-title">${articleTitle.value || t('article_editor.untitled_article')}</h1>
         ${subtitle}
@@ -863,9 +915,20 @@ const isContributor = computed(() => appStore.userRole === 'Contributor')
 const isAuthor = computed(() => appStore.userRole === 'Author')
 const isAdmin = computed(() => appStore.userRole === 'Admin')
 
+// Creator 模式：/creator/articles/* 下的 Author 发布流程
+const route = useRoute()
+const isCreatorMode = computed(() => route.path.startsWith('/creator'))
+// 站点文章审核开关：开启时 creator 模式固定草稿（状态选择隐藏）
+const reviewEnabled = computed(() => appStore.article_review_enabled)
+// Author 自己 blog 的分类/系列（creator 模式下显示，均非必填）
+const blogCategories = ref<{ id: number; name: string }[]>([])
+const blogSeriesList = ref<{ id: number; name: string }[]>([])
+
 const publishForm = reactive({
   category: '',
   series: '',
+  blogCategory: '',
+  blogSeries: '',
   author: '',
   coAuthors: [] as string[],
   tags: [] as string[],
@@ -878,14 +941,11 @@ const publishForm = reactive({
   seoTitle: '',
   seoDescription: ''
 })
-// 发布表单验证规则
-const publishFormRules = {
-  category: [{ required: true, message: '请选择分类', trigger: 'blur' }],
-  // series: [{ required: true, message: '请选择系列', trigger: 'blur' }],
+// 发布表单验证规则（creator 模式下平台分类不选——由审核者定，Blog 分类/系列非必填）
+const publishFormRules = computed(() => ({
+  category: isCreatorMode.value ? [] : [{ required: true, message: '请选择分类', trigger: 'blur' }],
   author: [{ required: true, message: '请选择作者', trigger: 'blur' }]
-  // coAuthors: [{ required: true, message: '请选择协作者', trigger: 'blur' }],
-  // tags: [{ required: true, message: '请选择标签', trigger: 'blur' }],
-}
+}))
 // 处理文章发布
 const handlePublishArticle = async () => {
   if (!publishFormRef.value) {
@@ -898,9 +958,9 @@ const handlePublishArticle = async () => {
     // 获取用户角色
     const userRole = appStore.userRole
 
-    // Contributor 只能创建草稿
+    // Contributor 只能创建草稿；站点审核开启时 creator 模式（Author）同样固定草稿
     let articleStatus = publishForm.status
-    if (userRole === 'Contributor') {
+    if (userRole === 'Contributor' || (isCreatorMode.value && reviewEnabled.value)) {
       articleStatus = 'draft'
     }
 
@@ -909,8 +969,11 @@ const handlePublishArticle = async () => {
       subtitle: articleSubtitle.value,
       content: articleContent.value,
       cover: coverImageUrl.value,
-      category_id: Number(publishForm.category),
-      series_id: publishForm.series ? Number(publishForm.series) : null,
+      // creator 模式：平台分类留空（审核发布时定），归属用 Blog 分类/系列
+      category_id: isCreatorMode.value ? null : Number(publishForm.category),
+      series_id: isCreatorMode.value ? null : (publishForm.series ? Number(publishForm.series) : null),
+      blog_category_id: isCreatorMode.value && publishForm.blogCategory ? Number(publishForm.blogCategory) : null,
+      blog_series_id: isCreatorMode.value && publishForm.blogSeries ? Number(publishForm.blogSeries) : null,
       author: publishForm.author,
       co_authors: publishForm.coAuthors ? publishForm.coAuthors.join(',') : null,
       tags: publishForm.tags ? publishForm.tags.join(',') : null,
@@ -954,7 +1017,23 @@ onMounted(() => {
   loadParentCategories()
   loadSeriesData()
   loadUserInfo()
+
+  // creator 模式：加载 Author 自己 blog 的分类/系列（非必填项的数据源）
+  if (isCreatorMode.value) {
+    loadBlogTaxonomies()
+  }
 })
+
+// 加载当前用户 blog 的分类与系列（creator 模式）
+const loadBlogTaxonomies = async () => {
+  try {
+    const [catRes, seriesRes] = await Promise.all([getUserCategories(), getUserSeriesList()])
+    if (catRes.code === 1 && catRes.data) blogCategories.value = catRes.data
+    if (seriesRes.code === 1 && seriesRes.data) blogSeriesList.value = seriesRes.data
+  } catch (error) {
+    console.error('加载 Blog 分类/系列失败:', error)
+  }
+}
 
 // 应用主题设置
 const applyTheme = () => {
@@ -1390,6 +1469,19 @@ const handleSelectTag = (tag: string, input: string) => {
 
 .article-title-area {
   margin-bottom: 20px;
+}
+
+/* 编辑器沉浸式输入：去掉聚焦时的蓝色外框。
+   refine.css 的 html.wy-refine :focus-visible 给全站加了 2px 品牌色 outline，
+   而 Chrome 对文本输入控件/contenteditable 即使鼠标点击也始终匹配 :focus-visible，
+   于是标题/副标题/正文聚焦时都会出现蓝框，破坏无边框的编辑体验。
+   这里以更高特异性仅对本页三个输入区摘除 outline，
+   全站其他控件的键盘焦点可见性不受影响。 */
+.article-title-input:focus-visible,
+.article-subtitle-input:focus-visible,
+.editor-container :deep(.tiptap.ProseMirror:focus-visible) {
+  outline: none;
+  outline-offset: 0;
 }
 
 .article-title-input {

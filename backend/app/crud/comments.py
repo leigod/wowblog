@@ -295,3 +295,77 @@ async def get_top_commenters(
         ))
 
     return commenters
+
+# 获取指定用户的评论列表（个人资料页「评论」Tab 用）
+async def get_user_comments(
+    db: AsyncSession,
+    user_id: int,
+    limit: int = 10,
+    offset: int = 0,
+) -> tuple[List[dict], int]:
+    """
+    获取指定用户发表的评论（仅顶级评论，且所属文章已发布）
+
+    返回: (评论列表, 总数)
+    """
+    base_conditions = [
+        models.BlogComments.user_id == user_id,
+        models.BlogComments.type == 'reply',
+        models.BlogComments.status == 1,
+        models.BlogComments.audit_status == 'approved',
+        models.BlogComments.article_id > 0,
+        models_articles.BlogArticle.status == 'published',
+    ]
+
+    join_condition = (
+        models.BlogComments.article_id == models_articles.BlogArticle.id
+    )
+
+    # 总数
+    count_stmt = select(
+        func.count(models.BlogComments.id)
+    ).select_from(
+        models.BlogComments
+    ).join(
+        models_articles.BlogArticle,
+        join_condition,
+    ).where(
+        and_(*base_conditions)
+    )
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # 列表
+    stmt = select(
+        models.BlogComments.id,
+        models.BlogComments.comment,
+        models.BlogComments.likes,
+        models.BlogComments.replys,
+        models.BlogComments.createtime,
+        models.BlogComments.article_id,
+        models_articles.BlogArticle.title.label('article_title'),
+        models_articles.BlogArticle.slug.label('article_slug'),
+    ).select_from(
+        models.BlogComments
+    ).join(
+        models_articles.BlogArticle,
+        join_condition,
+    ).where(
+        and_(*base_conditions)
+    ).order_by(
+        models.BlogComments.createtime.desc(),
+    ).offset(offset).limit(limit)
+
+    result = await db.execute(stmt)
+    items = []
+    for row in result.fetchall():
+        items.append({
+            'id': row.id,
+            'comment': row.comment,
+            'likes': row.likes or 0,
+            'replys': row.replys or 0,
+            'createtime': row.createtime,
+            'article_id': row.article_id,
+            'article_title': row.article_title,
+            'article_slug': row.article_slug,
+        })
+    return items, total

@@ -93,14 +93,13 @@ async def build_series_tree(db: AsyncSession) -> List[Dict[str, Any]]:
     return tree
 
 # 获取所有导航
-async def get_navs(db: AsyncSession, skip: int = 0, limit: int = 100):
-    # 同步查询语法
-    # result = await db.query(models.BlogNav).offset(skip).limit(limit).all()
-    # return result
+# status: 1=仅显示(前台默认), 0=仅隐藏, None=全部(管理端需要能看到隐藏项以便恢复)
+async def get_navs(db: AsyncSession, skip: int = 0, limit: int = 100, status: int | None = 1):
     # 使用异步查询语法替换 db.query()
-    result = await db.execute(
-        select(models.BlogNav).where(models.BlogNav.status == 1).offset(skip).limit(limit).order_by(models.BlogNav.sort.asc())
-    )
+    query = select(models.BlogNav).order_by(models.BlogNav.sort.asc())
+    if status is not None:
+        query = query.where(models.BlogNav.status == status)
+    result = await db.execute(query.offset(skip).limit(limit))
     # 系统预置2个导航，ID为1和2，分别为“首页”和“分类”
     # 当导航为ID为2的分类导航时，需获取所有分类及其子分类，最多3级，分类的url为/categories/<slug>
     # 当ID为3时，获取所有系列，url为/series/<slug>

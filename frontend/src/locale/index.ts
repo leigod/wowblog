@@ -18,8 +18,11 @@ export const LOCALE_OPTIONS = [
 const ADMIN_LOCALE_KEY = 'admin-locale'
 const BLOG_LOCALE_KEY = 'blog-locale'
 
-// 根据当前是否在管理后台页面选择不同的语言存储键（完全独立，无后备）
-const isAdminPage = window.location.pathname.startsWith('/admin/')
+// 后台侧（管理后台 + Author 工作台）共用 admin-locale，前台用 blog-locale。
+// 统一用同一个判定，避免 i18n 初始化、路由守卫、切换 hook 三处口径漂移。
+export const isBackendPath = (path: string) => /^\/(admin|creator)(\/|$)/.test(path)
+
+const isAdminPage = isBackendPath(window.location.pathname)
 const defaultLocale = isAdminPage
   ? localStorage.getItem(ADMIN_LOCALE_KEY) || 'zh-CN'
   : localStorage.getItem(BLOG_LOCALE_KEY) || 'zh-CN'
@@ -49,15 +52,20 @@ const buildAdminMessages = (locale: 'zh-CN' | 'en-US') => {
 }
 
 // 合并翻译消息
+// 注意：admin 段按 buildAdminMessages 白名单合并，新增 admin 模块必须同步在此注册。
+// creator（Author 工作台）注册为顶层段而非 admin 子段——组件 key 为 creator.*，
+// 且 AdminLayout 顶栏菜单等非 admin 前缀的组件也会使用该段（与 invite 同模式）。
 const messages = {
   'en-US': {
     ...enUS,
     ...buildAdminMessages('en-US'),
+    creator: adminModules.creator['en-US'],
     invite: inviteModules['en-US']
   },
   'zh-CN': {
     ...cn,
     ...buildAdminMessages('zh-CN'),
+    creator: adminModules.creator['zh-CN'],
     invite: inviteModules['zh-CN']
   }
 }

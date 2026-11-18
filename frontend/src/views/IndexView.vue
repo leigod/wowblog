@@ -2,50 +2,78 @@
   <div class="wy-container">
     <el-container>
       <el-main>
-        <el-row :gutter="30">
-          <el-col :xs="24" :sm="24" :md="16">
-            <div style="border-radius: 8px">
-              <el-carousel :height="carouselHeight" class="wy-card-radius">
-                <el-carousel-item v-for="item in recommendArticleList" :key="item.id">
-                  <div class="wy-carousel-item" @click="handleDetail(item)">
-                    <div class="wy-carousel-caption">
-                      <div class="title">{{ item.title }}</div>
-                      <div class="description">
-                        {{ item.content.slice(0, 80).replace(/<\/?[^>]+(>|$)/g, '') }}...
-                      </div>
-                    </div>
-                    <el-image
-                      class="wy-carousel-img"
-                      :src="item.cover || item.og_image"
-                      fit="cover"
-                    />
-                  </div>
-                </el-carousel-item>
-              </el-carousel>
+        <!-- 编辑推荐区：整宽，左主推卡（大封面 + 标题 + 摘要）+ 右次推列（图右置小方图）。
+             白底直排、无卡片边框，靠字号对比分区；取代原轮播（文字压图可读性差）。 -->
+        <section v-if="editorialHero" class="wy-editorial">
+          <div class="ed-hero" @click="handleDetail(editorialHero)">
+            <div class="ed-hero-cover">
+              <el-image
+                v-if="editorialHero.cover || editorialHero.og_image"
+                :src="editorialHero.cover || editorialHero.og_image"
+                fit="cover"
+                lazy
+              />
+              <div v-else class="ed-placeholder">
+                <span class="ed-mark" aria-hidden="true">{{
+                  (editorialHero.title || 'W').trim().charAt(0)
+                }}</span>
+              </div>
             </div>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="8">
-            <el-card shadow="never" class="wy-card-radius wy-last-update-list">
-              <div class="wy-card-title">{{ $t('home.list.lastupdated') }}</div>
-              <div class="wy-card-body">
-                <div class="last-item" v-for="item in recentArticleList" :key="item.article.id">
-                  <span class="item-category"
-                    >[<el-link
-                      :title="item.category_name"
-                      :href="'/category/' + item.category_slug"
-                      >{{ truncateCategory(item.category_name) }}</el-link
-                    >]</span
-                  >
-                  <span class="item-title">
-                    <el-link :title="item.article.title" :href="'/article/' + item.article.slug">{{
-                      item.article.title
-                    }}</el-link></span
-                  >
+            <div class="ed-hero-body">
+              <div class="ed-kicker">
+                <span class="pick">{{ $t('home.carousel.editorsPick') }}</span>
+                <span class="sep">·</span>
+                <span class="cat">{{
+                  editorialHero.category_name || $t('home.carousel.uncategorized')
+                }}</span>
+              </div>
+              <h2 class="ed-title">{{ editorialHero.title }}</h2>
+              <p class="ed-summary">{{ plainText(editorialHero.content) }}</p>
+              <div class="ed-meta">
+                <span>{{ editorialHero.author_full_name || editorialHero.author_username }}</span>
+                <span class="sep">·</span>
+                <span>{{
+                  formatDateTime(editorialHero.pub_time || editorialHero.createtime, 'YYYY-MM-DD')
+                }}</span>
+                <span class="sep">·</span>
+                <span
+                  >{{ readMinutes(editorialHero.content) }}
+                  {{ $t('home.carousel.minutesRead') }}</span
+                >
+              </div>
+            </div>
+          </div>
+          <div class="ed-side">
+            <div
+              v-for="item in editorialSideList"
+              :key="item.id"
+              class="ed-item"
+              @click="handleDetail(item)"
+            >
+              <div class="ed-item-main">
+                <div class="ed-item-title">{{ item.title }}</div>
+                <div class="ed-item-meta">
+                  <span>{{ formatDateTime(item.pub_time || item.createtime, 'YYYY-MM-DD') }}</span>
+                  <span class="sep">·</span>
+                  <span>{{ readMinutes(item.content) }} {{ $t('home.carousel.minutesRead') }}</span>
                 </div>
               </div>
-            </el-card>
-          </el-col>
-        </el-row>
+              <div class="ed-item-cover">
+                <el-image
+                  v-if="item.cover || item.og_image"
+                  :src="item.cover || item.og_image"
+                  fit="cover"
+                  lazy
+                />
+                <div v-else class="ed-placeholder is-sm">
+                  <span class="ed-mark" aria-hidden="true">{{
+                    (item.title || 'W').trim().charAt(0)
+                  }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <el-row :gutter="30" class="wy-padding-top30">
           <el-col :xs="24" :sm="24" :md="16" class="wy-card-list">
@@ -57,8 +85,8 @@
                 @click="handleTabClick('all')"
               >
                 <IconifyIcon icon="quill:list" width="20" height="20"></IconifyIcon>
-                <span style="margin-left: 10px">{{ $t('home.list.tab.all') }}</span></el-button
-              >
+                <span style="margin-left: 10px">{{ $t('home.list.tab.all') }}</span>
+              </el-button>
               <el-button
                 round
                 :type="currentActiveTab === 'following' ? 'primary' : 'default'"
@@ -66,10 +94,8 @@
                 @click="handleTabClick('following')"
               >
                 <IconifyIcon icon="cuida:users-outline" width="20" height="20"></IconifyIcon>
-                <span style="margin-left: 10px">{{
-                  $t('home.list.tab.following')
-                }}</span></el-button
-              >
+                <span style="margin-left: 10px">{{ $t('home.list.tab.following') }}</span>
+              </el-button>
               <el-button
                 round
                 :type="currentActiveTab === 'featured' ? 'primary' : 'default'"
@@ -77,8 +103,8 @@
                 @click="handleTabClick('featured')"
               >
                 <IconifyIcon icon="la:medal" width="20" height="20"></IconifyIcon>
-                <span style="margin-left: 10px">{{ $t('home.list.tab.featured') }}</span></el-button
-              >
+                <span style="margin-left: 10px">{{ $t('home.list.tab.featured') }}</span>
+              </el-button>
             </div>
             <div v-if="currentActiveTab === 'all'">
               <!--默认列表-->
@@ -93,7 +119,7 @@
                   <div class="left">
                     <div class="block">
                       <el-avatar
-                        :size="50"
+                        :size="40"
                         :src="item.author_profile_image || default_avatar"
                         @click.stop="handleProfile(item.author_username)"
                       />
@@ -130,7 +156,7 @@
                         {{ item.title }}
                       </div>
                       <div class="summary">
-                        {{ item.content.slice(0, 150).replace(/<\/?[^>]+(>|$)/g, '') }}
+                        {{ plainText(item.content) }}
                       </div>
                     </div>
                     <div class="right" v-if="item.cover">
@@ -144,7 +170,10 @@
                   <div class="info">
                     <div class="left">
                       <span>
-                        <el-icon><ChatLineRound /></el-icon> {{ $t('home.list.discuss') }}
+                        <el-icon>
+                          <ChatLineRound />
+                        </el-icon>
+                        {{ $t('home.list.discuss') }}
                       </span>
                       · <span>{{ item.stats?.likes }} {{ $t('home.list.likes') }}</span> ·
                       <span>{{ item.stats?.views }} {{ $t('home.list.reads') }}</span>
@@ -172,7 +201,8 @@
                           :color="item.isBookmarked ? '#ffcc00' : '#3f3f46'"
                           :stroke="item.isBookmarked ? '#ffcc00' : '#cccccc'"
                           @click.stop="handleBookmark(item.id, $event)"
-                      /></span>
+                        />
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -197,7 +227,7 @@
                   <div class="left">
                     <div class="block">
                       <el-avatar
-                        :size="50"
+                        :size="40"
                         :src="item.author_profile_image || default_avatar"
                         @click.stop="handleProfile(item.author_username)"
                       />
@@ -234,7 +264,7 @@
                         {{ item.title }}
                       </div>
                       <div class="summary">
-                        {{ item.content.slice(0, 150).replace(/<\/?[^>]+(>|$)/g, '') }}
+                        {{ plainText(item.content) }}
                       </div>
                     </div>
                     <div class="right" v-if="item.cover">
@@ -248,7 +278,10 @@
                   <div class="info">
                     <div class="left">
                       <span>
-                        <el-icon><ChatLineRound /></el-icon> {{ $t('home.list.discuss') }}
+                        <el-icon>
+                          <ChatLineRound />
+                        </el-icon>
+                        {{ $t('home.list.discuss') }}
                       </span>
                       · <span>{{ item.stats?.likes }} {{ $t('home.list.likes') }}</span> ·
                       <span>{{ item.stats?.views }} {{ $t('home.list.reads') }}</span>
@@ -276,7 +309,8 @@
                           :color="item.isBookmarked ? '#ffcc00' : '#3f3f46'"
                           :stroke="item.isBookmarked ? '#ffcc00' : '#cccccc'"
                           @click.stop="handleBookmark(item.id, $event)"
-                      /></span>
+                        />
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -305,7 +339,7 @@
                   <div class="left">
                     <div class="block">
                       <el-avatar
-                        :size="50"
+                        :size="40"
                         :src="item.author_profile_image || default_avatar"
                         @click.stop="handleProfile(item.author_username)"
                       />
@@ -342,7 +376,7 @@
                         {{ item.title }}
                       </div>
                       <div class="summary">
-                        {{ item.content.slice(0, 150).replace(/<\/?[^>]+(>|$)/g, '') }}
+                        {{ plainText(item.content) }}
                       </div>
                     </div>
                     <div class="right" v-if="item.cover">
@@ -356,7 +390,10 @@
                   <div class="info">
                     <div class="left">
                       <span>
-                        <el-icon><ChatLineRound /></el-icon> {{ $t('home.list.discuss') }}
+                        <el-icon>
+                          <ChatLineRound />
+                        </el-icon>
+                        {{ $t('home.list.discuss') }}
                       </span>
                       · <span>{{ item.stats?.likes }} {{ $t('home.list.likes') }}</span> ·
                       <span>{{ item.stats?.views }} {{ $t('home.list.reads') }}</span>
@@ -384,7 +421,8 @@
                           :color="item.isBookmarked ? '#ffcc00' : '#3f3f46'"
                           :stroke="item.isBookmarked ? '#ffcc00' : '#cccccc'"
                           @click.stop="handleBookmark(item.id, $event)"
-                      /></span>
+                        />
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -401,7 +439,7 @@
               </div>
             </div>
           </el-col>
-          <el-col :xs="24" :sm="24" :md="8">
+          <el-col :xs="24" :sm="24" :md="8" class="wy-index-aside">
             <el-card shadow="never" class="wy-recommend-articles" style="margin-bottom: 30px">
               <div class="wy-card-title">{{ $t('home.list.trending') }}</div>
               <div class="wy-card-body">
@@ -416,6 +454,29 @@
                     <span class="author">{{ item.full_name }}</span
                     ><span> · </span><span>{{ item.views }} {{ $t('home.list.reads') }}</span>
                   </div>
+                </div>
+              </div>
+            </el-card>
+
+            <!-- 最近更新：从首页顶部右栏挪到热点趋势下面（顶部让位给编辑推荐区） -->
+            <el-card shadow="never" style="margin-bottom: 30px">
+              <div class="wy-card-title">{{ $t('home.list.lastupdated') }}</div>
+              <div class="wy-card-body">
+                <div class="last-item" v-for="item in recentArticleList" :key="item.article.id">
+                  <span class="item-category"
+                    >[<el-link
+                      :title="item.category_name"
+                      :href="'/category/' + item.category_slug"
+                      >{{ item.category_name }}</el-link
+                    >]</span
+                  >
+                  <span class="item-title">
+                    <el-link
+                      :title="item.article.title"
+                      :href="'/article/' + item.article.slug"
+                      >{{ item.article.title }}</el-link
+                    ></span
+                  >
                 </div>
               </div>
             </el-card>
@@ -459,7 +520,7 @@
 
 <script setup lang="ts">
 import { Medal } from '@element-plus/icons-vue'
-import { ref, reactive, toRefs, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, toRefs, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
@@ -472,6 +533,7 @@ import {
   getRecentBlog,
   getHotTagsList,
   getHotArticlesList,
+  getEditorialArticles,
   bookmarkArticleApi,
   unbookmarkArticleApi,
   checkBookmarkArticleApi,
@@ -509,6 +571,23 @@ const appStore = useAppStore()
 
 const default_avatar = 'src/assets/avatar.png'
 
+// 摘要只做「去 HTML 标签」+ 一个宽松的 DOM 安全上限：
+// 接口返回的 content 是整篇文章全文（实测单篇可达 1.3 万字符），
+// 完全不截会把几十万字符塞进 DOM。600 字远超 2~3 行的显示量，
+// 所以行数与省略号仍完全由 CSS 的 line-clamp 决定，
+// 不会再出现「按显示字数截断导致中英文行数参差 / 省略号重复」的老问题。
+// 正则放在 script 中，避免 Vue 模板格式化器把插值里的 `<` 误判为标签起始。
+const SUMMARY_LIMIT = 600
+const plainText = (content?: string) =>
+  (content || '').replace(/<\/?[^>]+(>|$)/g, '').slice(0, SUMMARY_LIMIT)
+
+// 轮播文字区元信息：阅读时长按中文约 300 字/分钟估算；
+// 分类名 / 阅读数由 /blog/articles/list 接口补充返回。
+const readMinutes = (content?: string) => {
+  const plain = (content || '').replace(/<[^>]+>/g, '')
+  return Math.max(1, Math.round(plain.length / 300))
+}
+
 const currentPage = ref(1)
 const pageSize = ref(10)
 const totalArticles = ref(0)
@@ -517,7 +596,7 @@ const followingCurrentPage = ref(1)
 const followingPageSize = ref(10)
 const followingTotalArticles = ref(0)
 const followingArticleList = ref<any[]>([])
-const recommendArticleList = ref<any[]>([])
+const editorialList = ref<any[]>([])
 const featuredCurrentPage = ref(1)
 const featuredPageSize = ref(10)
 const featuredTotalArticles = ref(0)
@@ -528,29 +607,9 @@ const hasMoreFollowingData = ref(true)
 const hasMoreFeaturedData = ref(true)
 const recentArticleList = ref<any[]>([])
 
-const carouselHeight = ref('350px')
-const handleResize = () => {
-  if (window.innerWidth < 768) {
-    carouselHeight.value = '203px'
-  } else {
-    carouselHeight.value = '350px'
-  }
-}
 // 处理页面可见性变化
 let savedScrollPosition = 0
 let wasHidden = false
-
-// 截取字符串函数 - 用于分类名称（最多4个字符）
-const truncateCategory = (text: string): string => {
-  if (!text) return ''
-  return text.length > 4 ? text.slice(0, 4) + '...' : text
-}
-
-// 截取字符串函数 - 用于文章标题（最多18个字符）
-const truncateTitle = (text: string): string => {
-  if (!text) return ''
-  return text.length > 18 ? text.slice(0, 18) + '...' : text
-}
 
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'hidden') {
@@ -565,18 +624,16 @@ const handleVisibilityChange = () => {
 }
 
 onMounted(() => {
-  window.addEventListener('resize', handleResize)
   document.addEventListener('visibilitychange', handleVisibilityChange)
   // 确保路由切换时不会恢复滚动位置
   savedScrollPosition = 0
   getArticleList()
-  loadRecommendArticles()
+  loadEditorialArticles()
   loadRecentArticles()
   loadHotTags()
   loadHotArticles()
 })
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 const handleDetail = (item: any) => {
@@ -607,16 +664,23 @@ const handleTabClick = (tab: string) => {
   }
 }
 
-// 获取轮播推荐文章
-const loadRecommendArticles = async () => {
-  const params: HomeArticleSearchParams = {
-    type: 'recommend'
-  }
-  const res = await getBlogList(1, 6, params)
+// 获取编辑推荐文章（后端降级链：置顶+加精 → 加精 → 推荐 → 高阅读兜底）
+const loadEditorialArticles = async () => {
+  const res = await getEditorialArticles(7)
   if (res.code === 1) {
-    recommendArticleList.value = res.data.list
+    editorialList.value = res.data || []
   }
 }
+
+// 主卡优先选有封面的文章（无图主卡会掉气质），副列取其余 6 篇（与左侧高度基本持平）
+const editorialHero = computed(() => {
+  const list = editorialList.value
+  if (!list.length) return null
+  return list.find((a) => a.cover || a.og_image) || list[0]
+})
+const editorialSideList = computed(() =>
+  editorialList.value.filter((a) => a.id !== editorialHero.value?.id)
+)
 
 // 获取文章列表
 const getArticleList = async () => {
@@ -857,9 +921,10 @@ const loadArticleStats = async () => {
   }
 }
 
-// 获取最近更新文章
+// 获取最近更新文章（8 条装进上半容器，高度与轮播图片区 350px 对齐；
+// 下半是模板里真实的运营位容器，200px 与轮播文字区等高，整卡 552px）
 const loadRecentArticles = async () => {
-  const res = await getRecentBlog()
+  const res = await getRecentBlog(8)
   if (res.code === 1) {
     recentArticleList.value = res.data || []
   }
@@ -1048,169 +1113,147 @@ defineOptions({ name: 'IndexView' })
   display: flex;
   width: 1200px;
 }
+
 .wy-padding-top30 {
   padding-top: 30px;
 }
-.wy-carousel-container {
-  height: 350px;
-}
-.wy-carousel-item {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  cursor: pointer;
-}
-.wy-carousel-img {
-  width: 100%;
-  height: 350px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  pointer-events: none;
-}
 
-.wy-carousel-caption {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  padding: 20px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.4));
-  color: white;
-  z-index: 10;
-  box-sizing: border-box;
-  pointer-events: none;
-}
-
-.wy-carousel-caption .title {
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: 8px;
-}
-
-.wy-carousel-caption .description {
-  font-size: 16px;
-  opacity: 0.9;
-}
 .wy-card-radius {
   border-radius: 8px;
 }
+
 /* .wy-card-list .wy-card-radius:first {
   margin-top: 0;
 } */
 .wy-card:hover {
   cursor: pointer;
 }
+
 .wy-card:not(:first-of-type) {
   margin-top: 30px;
 }
 
-.el-carousel__item h3 {
-  color: #475669;
-  opacity: 0.75;
-  line-height: 150px;
-  margin: 0;
-  text-align: center;
-}
-.el-carousel__item:nth-child(2n) {
-  background-color: #99a9bf;
-}
-
-.el-carousel__item:nth-child(2n + 1) {
-  background-color: #d3dce6;
-}
-
-.wy-last-update-list {
-  max-height: 350px;
-}
 .wy-card-title {
   font-size: 1.25rem;
   font-weight: 800;
   color: var(--el-text-color-regular);
   margin-bottom: 1rem;
 }
+
 .wy-card-body .last-item {
   font-size: 1.25rem;
   display: flex;
 }
+
 .wy-card-body .last-item:not(:last-child) {
   margin-bottom: 0.7rem;
 }
+
 .wy-no-more-data {
   text-align: center;
   color: #909399;
   font-size: 14px;
   padding: 20px 0;
 }
+
 .wy-card-body .last-item .item-category {
   color: var(--el-text-color-regular);
   cursor: pointer;
-  /* overflow: hidden; */
   white-space: nowrap;
   margin-right: 5px;
-  /* text-overflow: ellipsis; */
-  /* min-width: 50px; */
-  /* max-width: 100px; */
+  /* 固定最小宽度让 8 行标题起点对齐；后台填了超长分类名时按宽度裁切，完整名在 :title 中 */
+  flex: none;
+  min-width: 40px;
+  max-width: 84px;
+  overflow: hidden;
 }
+
+/* 标题不再用 JS 按字符数截断：交给浏览器按真实渲染宽度省略。
+   min-width:0 是 flex 子项能收缩到比内容更窄的前提，否则 ellipsis 永不触发；
+   EP 的 el-link 是 inline-flex，需改成 block 才能让 text-overflow 生效。 */
 .wy-card-body .last-item .item-title {
   color: var(--el-text-color-regular);
   cursor: pointer;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+.wy-card-body .last-item .item-title .el-link,
+.wy-card-body .last-item .item-title .el-link__inner {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .wy-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .wy-card-header .left {
   display: flex;
 }
+
 .wy-card-header .left .block {
   margin-right: 10px;
 }
+
 .wy-card-header .author {
   font-weight: 800;
   font-size: 14px;
   line-height: 28px;
 }
+
 .wy-card-header .info {
   color: #909399;
 }
+
 .wy-card-body {
   display: flex;
   flex-direction: column;
 }
+
 .wy-card-body .content,
 .wy-card-body .info {
   display: flex;
   justify-content: space-between;
   padding-top: 15px;
 }
+
 .wy-card-body .info .right {
   display: flex;
   align-items: center;
 }
+
 .wy-card-body .content .right {
   width: 179px;
   height: 108px;
   border-radius: 8px;
 }
+
 .wy-card-body .content .left {
   display: flex;
   flex-direction: column;
   /* width: 500px; */
   flex: 1;
   margin-right: 10px;
+  /* flex 子项默认 min-width:auto，长标题/长单词会把卡片横向撑爆出视口 */
+  min-width: 0;
 }
+
 .wy-card-body .title {
   font-weight: 800;
   font-size: 24px;
   line-height: 30px;
   padding-bottom: 10px;
 }
+
 .wy-card-body .summary {
   font-size: 18px;
   color: #909399;
@@ -1221,6 +1264,7 @@ defineOptions({ name: 'IndexView' })
   line-clamp: 2;
   -webkit-line-clamp: 2;
 }
+
 .wy-card-image {
   width: 179px;
   height: 108px;
@@ -1229,6 +1273,7 @@ defineOptions({ name: 'IndexView' })
 .wy-card-body .article-item:not(:last-child) {
   margin-bottom: 1.2rem;
 }
+
 .wy-card-body .article-item .item-title {
   font-size: 1rem;
   font-weight: 600;
@@ -1241,18 +1286,22 @@ defineOptions({ name: 'IndexView' })
   -webkit-box-orient: vertical;
   margin-bottom: 0.5rem;
 }
+
 .wy-card-body .article-item .item-title:hover {
   text-decoration: underline;
   color: var(--el-color-primary);
 }
+
 .wy-card-body .article-item .item-info {
   display: flex;
   justify-content: flex-start;
   color: var(--el-text-color-secondary);
 }
+
 .wy-card-body .article-item .item-info span {
   margin-right: 8px;
 }
+
 .wy-card-body .article-item .item-info .author {
   cursor: pointer;
 }
@@ -1263,10 +1312,12 @@ defineOptions({ name: 'IndexView' })
   /*padding: 0 45px;*/
   flex-wrap: wrap;
 }
+
 .wy-hot-tags span {
   cursor: pointer;
   margin: 5px;
 }
+
 .wy-hot-tags span:hover {
   cursor: pointer;
   margin: 5px;
@@ -1281,43 +1332,35 @@ defineOptions({ name: 'IndexView' })
   margin-top: 30px;
 }
 
+/* 右栏（热点趋势/最近更新/热门标签）下移 50px，与左列卡片的筛选/排序条底对齐；
+   移动端上下堆叠时取消，避免出现无意义空档 */
+.wy-index-aside {
+  padding-top: 50px;
+}
+
 @media only screen and (max-width: 767px) {
+  .wy-index-aside {
+    padding-top: 0;
+  }
+
   .wy-container {
     display: flex;
     width: 100%;
   }
-  .wy-carousel-img {
-    width: 100%;
-    height: 203px;
-  }
-  .wy-carousel-caption {
-    padding: 15px;
-  }
-  .wy-carousel-caption .title {
-    font-size: 16px;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
-    overflow: hidden;
-  }
-  .wy-carousel-caption .description {
-    font-size: 12px;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
-    overflow: hidden;
-  }
-  .wy-last-update-list {
-    max-height: 350px;
-    margin-top: 30px;
-  }
+
   .wy-recommend-articles {
     margin-top: 30px;
   }
+
   .wy-card-image {
     width: 144px;
     height: 86px;
   }
+
   .el-main {
-    --el-main-padding: 10px !important;
+    /* gutter 30 的 el-row 用 -15px 负 margin 抵消列内边距，
+       此处 padding 必须 ≥15px，否则整行比视口宽 5px 造成横向溢出 */
+    --el-main-padding: 15px !important;
   }
 }
 </style>

@@ -48,7 +48,12 @@ export default {
         preview: 'Preview',
         cancel: 'Cancel',
         restore: 'Restore',
-        permanently_delete: 'Permanently delete'
+        permanently_delete: 'Permanently delete',
+        set_sort: 'Set Sort Order',
+        sort_prompt: 'Enter sort weight (only affects platform-level display order)',
+        sort_invalid: 'Please enter an integer',
+        sort_success: 'Sort order updated',
+        sort_error: 'Failed to update sort order'
       }
     },
     empty: {
@@ -126,6 +131,38 @@ export default {
       cancel: 'Cancel',
       success: 'Article deleted successfully.',
       error: 'Failed to delete article.'
+    },
+    restore: {
+      title: 'Restore Article',
+      description: 'Are you sure you want to restore this article? It will become a draft.',
+      confirm: 'Restore',
+      cancel: 'Cancel',
+      success: 'Article restored successfully.',
+      error: 'Failed to restore article.'
+    },
+    soft_delete: {
+      title: 'Delete Article',
+      description: 'Are you sure you want to delete this article? It will be moved to the recycle bin and can be restored anytime.',
+      confirm: 'Delete',
+      cancel: 'Cancel',
+      success: 'Article moved to recycle bin.',
+      error: 'Failed to delete article.'
+    },
+    permanent_delete: {
+      title: 'Permanently Delete Article',
+      description: 'Are you sure you want to permanently delete this article? This action cannot be undone!',
+      confirm: 'Delete Permanently',
+      cancel: 'Cancel',
+      success: 'Article permanently deleted.',
+      error: 'Failed to permanently delete article.'
+    },
+    cancel: {
+      title: 'Cancel Scheduled Publishing',
+      description: 'Are you sure you want to cancel the scheduled publishing of this article? It will become a draft.',
+      confirm: 'Cancel Schedule',
+      cancel: 'Keep Schedule',
+      success: 'Scheduled publishing cancelled. Article is now a draft.',
+      error: 'Failed to cancel scheduled publishing.'
     },
     update: {
       status: {

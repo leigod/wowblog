@@ -1,7 +1,29 @@
 <template>
   <div class="doc-view-container">
     <div v-if="loading" class="loading">{{ t('doc.loading') }}</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <!-- 文档 / 文档书不存在：友好错误页 + 跳转建议 -->
+    <div v-else-if="error" class="error-state">
+      <div class="error-icon">
+        <el-icon :size="34"><Document /></el-icon>
+      </div>
+      <h2 class="error-title">{{ docbook ? t('doc.not_found_title') : t('doc.docbook_not_found_title') }}</h2>
+      <p class="error-desc">{{ error }}</p>
+      <div class="error-actions">
+        <el-button v-if="docbook" type="primary" @click="router.push(`/docs/${docbookSlug}`)">
+          {{ t('doc.error_back_book', { name: docbook.name }) }}
+        </el-button>
+        <el-button @click="router.push('/')">{{ t('doc.error_back_home') }}</el-button>
+      </div>
+      <div v-if="errorChapters.length" class="error-suggestions">
+        <p class="suggestions-label">{{ t('doc.error_try_chapters') }}</p>
+        <div class="suggestions-list">
+          <router-link v-for="ch in errorChapters" :key="ch.id"
+            :to="`/docs/${docbookSlug}/${ch.slug}`" class="suggestion-link">
+            {{ ch.title }}
+          </router-link>
+        </div>
+      </div>
+    </div>
     <template v-else-if="doc && docbook">
       <!-- 文档头部面包屑 -->
       <nav class="breadcrumbs">
@@ -83,16 +105,21 @@
               <div v-html="renderedContent"></div>
             </div>
 
-            <!-- 子文档导航（内容为空时显示） -->
-            <div v-if="showChildNav">
-              <p>本文档没有内容，以下是该文档下的子页面：</p>
-              <ul>
-                <li v-for="child in childDocs" :key="child.id">
-                  <router-link :to="`/docs/${docbookSlug}/${child.slug}`">
-                    {{ child.title }}
-                  </router-link>
-                </li>
-              </ul>
+            <!-- 子文档导航（内容为空时显示）：原为浏览器默认的紫色下划线 ul 链接，改为章节卡式列表 -->
+            <div v-if="showChildNav" class="child-nav">
+              <p class="child-nav-title">{{ t('doc.child_pages_hint') }}</p>
+              <div class="child-nav-list">
+                <router-link v-for="child in childDocs" :key="child.id"
+                  :to="`/docs/${docbookSlug}/${child.slug}`" class="child-nav-item">
+                  <el-icon class="child-nav-icon" :size="18">
+                    <Document />
+                  </el-icon>
+                  <span class="child-nav-label">{{ child.title }}</span>
+                  <el-icon class="child-nav-arrow" :size="14">
+                    <ArrowRight />
+                  </el-icon>
+                </router-link>
+              </div>
             </div>
           </article>
 
@@ -292,7 +319,7 @@ defineOptions({
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ArrowLeft, ArrowRight, Search, ChatDotRound } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Search, ChatDotRound, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { docApi, docBookApi, type DocBook, type Doc, type DocTreeNode } from '@/api/services/doc'
 import docDefaultExport from '@/api/services/doc'
@@ -490,6 +517,12 @@ const hasNavigation = computed(() =>
 )
 
 // 获取当前文档的子文档列表
+// 错误页的「跳转建议」：文档不存在但书正常时，给出书的前几章
+const errorChapters = computed<DocTreeNode[]>(() => {
+  if (!error.value || !docbook.value) return []
+  return (docTree.value || []).slice(0, 6)
+})
+
 const childDocs = computed(() => {
   if (!doc.value || !docTree.value.length) return []
 
@@ -732,13 +765,14 @@ const loadData = async (useCache = true) => {
       docApi.getTree(docbookId)
     ])
 
+    // 文档不存在时文档书是正常的，把章节树留下给错误页做跳转建议
+    docTree.value = treeResponse.data || []
     if (!docResponse.data) {
       error.value = t('doc.not_found')
       return
     }
 
     doc.value = docResponse.data
-    docTree.value = treeResponse.data || []
 
     // 更新树形组件展开的节点
     if (doc.value) {
@@ -785,7 +819,15 @@ const loadData = async (useCache = true) => {
       }
       initCodeHighlighting()
     } else {
-      error.value = e.message || t('doc.load_failed')
+      // 404 一类给友好描述，网络错误保留原始信息
+      error.value = e.response?.status === 404 ? t('doc.not_found') : (e.message || t('doc.load_failed'))
+      // 尽力拿一份章节树，给错误页做跳转建议（拿不到就空着，不影响主流程）
+      if (docbook.value) {
+        try {
+          const tr = await docApi.getTree(docbook.value.id)
+          docTree.value = tr.data || []
+        } catch { /* 忽略：错误页无建议即可 */ }
+      }
     }
   } finally {
     loading.value = false
@@ -1082,15 +1124,93 @@ onBeforeUnmount(() => {
   padding: 20px;
 }
 
-.loading,
-.error {
+.loading {
   text-align: center;
   padding: 60px 20px;
   font-size: 18px;
 }
 
-.error {
-  color: var(--error-color, #f56c6c);
+/* ---------- 友好错误页（文档 / 文档书不存在） ---------- */
+.error-state {
+  max-width: 560px;
+  width: 100%;
+  margin: 48px auto;
+  padding: 48px 40px;
+  text-align: center;
+  background: var(--wy-bg-surface);
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-lg);
+  box-shadow: var(--wy-shadow-card);
+}
+
+.error-icon {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--wy-brand-soft);
+  color: var(--wy-brand);
+}
+
+.error-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--wy-text-primary);
+}
+
+.error-desc {
+  margin: 0 0 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--wy-text-secondary);
+}
+
+.error-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.error-suggestions {
+  padding-top: 20px;
+  border-top: 1px solid var(--wy-border-subtle);
+}
+
+.suggestions-label {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--wy-text-tertiary);
+}
+
+.suggestions-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.suggestion-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--wy-text-secondary);
+  text-decoration: none;
+  background: var(--wy-bg-muted);
+  border-radius: var(--wy-radius-md);
+  transition: color var(--wy-duration) var(--wy-easing),
+    background-color var(--wy-duration) var(--wy-easing);
+}
+
+.suggestion-link:hover {
+  color: var(--wy-brand);
+  background: var(--wy-brand-soft);
 }
 
 .breadcrumbs {
@@ -1100,27 +1220,27 @@ onBeforeUnmount(() => {
   gap: 8px;
   margin-bottom: 24px;
   padding: 12px 16px;
-  background: var(--card-bg);
+  background: var(--wy-bg-surface);
   border-radius: 8px;
   font-size: 14px;
 }
 
 .breadcrumb-link {
-  color: var(--accent-color);
+  color: var(--wy-brand);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .breadcrumb-link:hover {
-  color: var(--accent-hover);
+  color: var(--wy-brand-hover);
 }
 
 .separator {
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
 }
 
 .current {
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
 }
 
 .doc-content-wrapper {
@@ -1131,7 +1251,7 @@ onBeforeUnmount(() => {
 }
 
 .doc-sidebar {
-  background: var(--card-bg);
+  background: var(--wy-bg-surface);
   border-radius: 8px;
   padding: 16px;
 }
@@ -1170,13 +1290,13 @@ onBeforeUnmount(() => {
 /* Affix 内部的目录容器样式 */
 .right-sidebar .toc-header,
 .right-sidebar .toc-content {
-  background: var(--card-bg);
+  background: var(--wy-bg-surface);
   border-radius: 8px;
   padding: 12px;
 }
 
 .right-sidebar .toc-header {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--wy-border-subtle);
   margin-bottom: 8px;
   padding-bottom: 8px;
 }
@@ -1184,7 +1304,7 @@ onBeforeUnmount(() => {
 .sidebar-header {
   /* margin-bottom: 16px;
   padding-bottom: 16px; */
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--wy-border-subtle);
 }
 
 .sidebar-header h3 {
@@ -1196,7 +1316,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--accent-color);
+  color: var(--wy-brand);
   text-decoration: none;
   font-size: 14px;
 }
@@ -1226,20 +1346,23 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   padding: 6px 8px;
-  color: #606266;
+  color: var(--wy-text-secondary);
   text-decoration: none;
   border-radius: 4px;
-  transition: all 0.2s;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: color 0.16s ease, background-color 0.16s ease;
 }
 
 .tree-node-link:hover {
-  background: #ecf5ff;
-  color: #409eff;
+  background: var(--wy-brand-soft);
+  color: var(--wy-brand);
 }
 
 .tree-node-link.active {
-  background: #ecf5ff;
-  color: #409eff;
+  background: var(--wy-brand-soft);
+  color: var(--wy-brand);
   font-weight: 500;
 }
 
@@ -1248,7 +1371,7 @@ onBeforeUnmount(() => {
 }
 
 .doc-main {
-  background: var(--card-bg);
+  background: var(--wy-bg-surface);
   border-radius: 8px;
   padding: 40px;
   min-height: 500px;
@@ -1268,13 +1391,13 @@ onBeforeUnmount(() => {
 .doc-title-line {
   border: none;
   height: 1px;
-  background-color: var(--gray-3);
+  background-color: var(--wy-border-subtle);
 }
 
 .doc-line hr {
   border: none;
   height: 1px;
-  background-color: var(--gray-3);
+  background-color: var(--wy-border-subtle);
 }
 
 .doc-meta {
@@ -1282,9 +1405,9 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 20px;
   padding: 16px 0;
-  border-bottom: 1px solid var(--gray-3);
+  border-bottom: 1px solid var(--wy-border-subtle);
   margin-bottom: 24px;
-  color: var(--gray-4);
+  color: var(--wy-text-tertiary);
   font-size: 14px;
 }
 
@@ -1296,8 +1419,8 @@ onBeforeUnmount(() => {
 
 .doc-excerpt {
   padding: 16px;
-  background: var(--hover-bg);
-  border-left: 4px solid var(--accent-color);
+  background: var(--wy-bg-muted);
+  border-left: 4px solid var(--wy-brand);
   border-radius: 4px;
   margin-bottom: 32px;
   font-size: 16px;
@@ -1323,13 +1446,13 @@ onBeforeUnmount(() => {
 
 .markdown-body :deep(h1) {
   font-size: 28px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--wy-border-subtle);
   padding-bottom: 8px;
 }
 
 .markdown-body :deep(h2) {
   font-size: 24px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--wy-border-subtle);
   padding-bottom: 8px;
 }
 
@@ -1354,15 +1477,15 @@ onBeforeUnmount(() => {
   line-height: 1.8;
 }
 
-/* 行内代码样式 */
+/* 行内代码样式：粉色 #e83e8c 出规范，统一品牌色（有底色+描边，不会与正文链接混淆） */
 .markdown-body :deep(code) {
   padding: 3px 6px;
-  background: #f4f4f5;
-  border: 1px solid #e4e4e7;
+  background: var(--wy-bg-muted);
+  border: 1px solid var(--wy-border-subtle);
   border-radius: 4px;
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   font-size: 0.9em;
-  color: #e83e8c;
+  color: var(--wy-brand);
 }
 
 /* 代码块样式 */
@@ -1416,8 +1539,8 @@ onBeforeUnmount(() => {
 }
 
 .markdown-body :deep(.code-copy-btn.copied) {
-  background: #67c23a;
-  border-color: #67c23a;
+  background: var(--el-color-success);
+  border-color: var(--el-color-success);
   color: white;
 }
 
@@ -1464,9 +1587,9 @@ onBeforeUnmount(() => {
 .markdown-body :deep(blockquote) {
   margin: 16px 0;
   padding: 12px 16px;
-  border-left: 4px solid #409eff;
-  background: #ecf5ff;
-  color: #606266;
+  border-left: 4px solid var(--wy-brand);
+  background: var(--wy-brand-soft);
+  color: var(--wy-text-secondary);
   border-radius: 4px;
 }
 
@@ -1481,7 +1604,7 @@ onBeforeUnmount(() => {
 
 /* 链接样式 */
 .markdown-body :deep(a) {
-  color: var(--accent-color);
+  color: var(--wy-brand);
   text-decoration: none;
 }
 
@@ -1489,34 +1612,130 @@ onBeforeUnmount(() => {
   text-decoration: underline;
 }
 
-/* 表格样式 */
+/* 表格样式：GitHub 风格 —— 外框圆角、仅横向分隔线、去竖线 */
 .markdown-body :deep(table) {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   margin: 16px 0;
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-md, 8px);
 }
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  border: 1px solid var(--border-color);
-  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid var(--wy-border-subtle);
+  padding: 10px 14px;
   text-align: left;
 }
 
 .markdown-body :deep(th) {
-  background: var(--hover-bg);
+  background: var(--wy-bg-muted);
   font-weight: 600;
 }
 
 .markdown-body :deep(tr:nth-child(even)) {
-  background: var(--hover-bg);
+  background: transparent;
+}
+
+/* 圆角裁切：首末行的两端单元格补圆角，避免底色溢出外框 */
+.markdown-body :deep(th:first-child) {
+  border-top-left-radius: var(--wy-radius-md, 8px);
+}
+
+.markdown-body :deep(th:last-child) {
+  border-top-right-radius: var(--wy-radius-md, 8px);
+}
+
+.markdown-body :deep(tr:last-child td:first-child) {
+  border-bottom-left-radius: var(--wy-radius-md, 8px);
+}
+
+.markdown-body :deep(tr:last-child td:last-child) {
+  border-bottom-right-radius: var(--wy-radius-md, 8px);
+}
+
+.markdown-body :deep(tr:last-child td) {
+  border-bottom: none;
 }
 
 /* 分割线 */
 .markdown-body :deep(hr) {
   border: none;
-  border-top: 2px solid var(--border-color);
+  border-top: 2px solid var(--wy-border-subtle);
   margin: 24px 0;
+}
+
+/* ---------- 空正文时的子页面列表（原为浏览器默认紫色链接） ---------- */
+.child-nav {
+  margin-top: 24px;
+}
+
+.child-nav-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--wy-text-tertiary);
+}
+
+.child-nav-list {
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-lg, 12px);
+  background: var(--wy-bg-surface, var(--el-bg-color));
+  overflow: hidden;
+}
+
+.child-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  text-decoration: none;
+  color: var(--wy-text-primary);
+  transition: background-color var(--wy-duration, 160ms) var(--wy-easing, ease);
+}
+
+.child-nav-item + .child-nav-item {
+  border-top: 1px solid var(--wy-border-subtle);
+}
+
+.child-nav-item:hover {
+  background: var(--wy-brand-soft);
+}
+
+.child-nav-icon {
+  color: var(--wy-text-tertiary);
+  flex-shrink: 0;
+  transition: color var(--wy-duration, 160ms) var(--wy-easing, ease);
+}
+
+.child-nav-item:hover .child-nav-icon {
+  color: var(--wy-brand);
+}
+
+.child-nav-label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.child-nav-item:hover .child-nav-label {
+  color: var(--wy-brand);
+}
+
+.child-nav-arrow {
+  color: var(--wy-text-placeholder);
+  flex-shrink: 0;
+  transition: color var(--wy-duration, 160ms) var(--wy-easing, ease),
+    transform var(--wy-duration, 160ms) var(--wy-easing, ease);
+}
+
+.child-nav-item:hover .child-nav-arrow {
+  color: var(--wy-brand);
+  transform: translateX(2px);
 }
 
 .doc-navigation {
@@ -1525,7 +1744,7 @@ onBeforeUnmount(() => {
   gap: 16px;
   margin-top: 48px;
   padding-top: 24px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--wy-border-subtle);
 }
 
 .nav-link {
@@ -1534,18 +1753,18 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  background: var(--hover-bg);
+  background: var(--wy-bg-muted);
   border-radius: 8px;
   text-decoration: none;
-  color: var(--text-primary);
+  color: var(--wy-text-primary);
   transition: all 0.2s;
   border: 1px solid transparent;
 }
 
 .nav-link:hover {
-  background: #ecf5ff;
-  border-color: #409eff;
-  color: #409eff;
+  background: var(--wy-brand-soft);
+  border-color: var(--wy-brand);
+  color: var(--wy-brand);
 }
 
 .nav-link.next {
@@ -1566,12 +1785,12 @@ onBeforeUnmount(() => {
 .nav-label {
   display: block;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
   margin-bottom: 4px;
 }
 
 .nav-link:hover .nav-label {
-  color: #409eff;
+  color: var(--wy-brand);
 }
 
 .nav-title {
@@ -1585,17 +1804,17 @@ onBeforeUnmount(() => {
 .nav-icon {
   font-size: 20px;
   flex-shrink: 0;
-  color: #909399;
+  color: var(--wy-text-tertiary);
 }
 
 .nav-link:hover .nav-icon {
-  color: #409eff;
+  color: var(--wy-brand);
 }
 
 .doc-comments {
   margin-top: 48px;
   padding-top: 24px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--wy-border-subtle);
 }
 
 .doc-comments h3 {
@@ -1608,7 +1827,7 @@ onBeforeUnmount(() => {
 .comment-form {
   margin-bottom: 24px;
   padding: 16px;
-  background: var(--hover-bg);
+  background: var(--wy-bg-muted);
   border-radius: 8px;
 }
 
@@ -1635,14 +1854,14 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   padding: 20px;
-  background: var(--hover-bg);
+  background: var(--wy-bg-muted);
   border-radius: 8px;
   margin-bottom: 24px;
 }
 
 .comment-login-tip p {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
 }
 
 /* 评论列表 */
@@ -1650,7 +1869,7 @@ onBeforeUnmount(() => {
 .comments-empty {
   padding: 40px 20px;
   text-align: center;
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
 }
 
 .comments-header {
@@ -1659,14 +1878,14 @@ onBeforeUnmount(() => {
   align-items: center;
   margin-bottom: 16px;
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
 }
 
 .comment-item {
   display: flex;
   gap: 12px;
   padding: 16px 0;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--wy-border-subtle);
 }
 
 .comment-item:last-child {
@@ -1691,19 +1910,19 @@ onBeforeUnmount(() => {
 
 .comment-author {
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--wy-text-primary);
 }
 
 .comment-time {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
 }
 
 .comment-text {
   margin: 0 0 8px 0;
   font-size: 14px;
   line-height: 1.6;
-  color: var(--text-primary);
+  color: var(--wy-text-primary);
   word-break: break-word;
 }
 
@@ -1712,7 +1931,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
 }
 
 .comment-stats {
@@ -1730,7 +1949,7 @@ onBeforeUnmount(() => {
 .replies-section {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--wy-border-subtle);
 }
 
 .replies-list {
@@ -1759,26 +1978,26 @@ onBeforeUnmount(() => {
 .reply-author {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--wy-text-primary);
 }
 
 .reply-time {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
 }
 
 .reply-text {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--text-primary);
+  color: var(--wy-text-primary);
 }
 
 /* 回复表单样式 */
 .reply-form {
   margin-top: 12px;
   padding: 12px;
-  background: var(--hover-bg);
+  background: var(--wy-bg-muted);
   border-radius: 8px;
 }
 
@@ -1793,7 +2012,7 @@ onBeforeUnmount(() => {
 }
 
 .comments-placeholder {
-  color: var(--text-secondary);
+  color: var(--wy-text-secondary);
   text-align: center;
   padding: 40px;
 }
@@ -1802,14 +2021,14 @@ onBeforeUnmount(() => {
 .toc-header {
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--wy-border-subtle);
 }
 
 .toc-header h4 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--wy-text-primary);
 }
 
 /* el-anchor 样式覆盖 */
@@ -1830,7 +2049,7 @@ onBeforeUnmount(() => {
 .doc-anchor :deep(.el-anchor__link) {
   display: block;
   padding: 6px 12px;
-  color: #606266;
+  color: var(--wy-text-secondary);
   text-decoration: none;
   border-radius: 4px;
   font-size: 13px;
@@ -1842,18 +2061,18 @@ onBeforeUnmount(() => {
 }
 
 .doc-anchor :deep(.el-anchor__link:hover) {
-  background: #ecf5ff;
-  color: #409eff;
+  background: var(--wy-brand-soft);
+  color: var(--wy-brand);
 }
 
 .doc-anchor :deep(.el-anchor__link.is-active) {
-  background: #ecf5ff;
-  color: #409eff;
+  background: var(--wy-brand-soft);
+  color: var(--wy-brand);
   font-weight: 500;
 }
 
 .doc-anchor :deep(.el-anchor__marker) {
-  background-color: #409eff;
+  background-color: var(--wy-brand);
 }
 
 /* 目录层级缩进 */

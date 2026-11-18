@@ -191,7 +191,7 @@
               circle
             />
             <el-dropdown
-              @command="onArticleAction(article)"
+              @command="onArticleAction(article, $event)"
             >
               <el-button icon="More" size="default" class="more-button" circle text />
               <template #dropdown>
@@ -219,6 +219,10 @@
                         ? t('admin.article.list.table.menu.un_featured')
                         : t('admin.article.list.table.menu.featured')
                     }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="sort">
+                    <el-icon><Sort /></el-icon>
+                    {{ t('admin.article.list.table.menu.set_sort') }}
                   </el-dropdown-item>
                   <el-dropdown-item v-if="activeStatus === 'drafts'" command="preview">
                     <el-icon><View /></el-icon> {{ t('admin.article.list.table.menu.preview') }}
@@ -328,7 +332,7 @@
               circle
             />
             <el-dropdown
-              @command="onArticleAction(scope.row)"
+              @command="onArticleAction(scope.row, $event)"
             >
               <el-button icon="More" size="default" class="more-button" circle text />
               <template #dropdown>
@@ -356,6 +360,10 @@
                         ? t('admin.article.list.table.menu.un_featured')
                         : t('admin.article.list.table.menu.featured')
                     }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="sort">
+                    <el-icon><Sort /></el-icon>
+                    {{ t('admin.article.list.table.menu.set_sort') }}
                   </el-dropdown-item>
                   <el-dropdown-item v-if="activeStatus === 'drafts'" command="preview">
                     <el-icon><View /></el-icon> {{ t('admin.article.list.table.menu.preview') }}
@@ -408,6 +416,7 @@ import { formatDateTime } from '@/utils/dateUtils'
 const router = useRouter()
 import {
   Coordinate,
+  Sort,
   View,
   Close,
   Refresh,
@@ -429,6 +438,7 @@ import {
   getArticleTagsList,
   deleteArticle,
   updateArticleStatus,
+  updateArticleSort,
   updateArticleOpStatus,
   previewDraftArticle
 } from '@/api/services/articles'
@@ -600,11 +610,44 @@ const applyFilters = () => {
   showFilterDialog.value = false
 }
 
+
+// 编辑平台排序权重（wb_articles.sort，仅影响平台维度展示顺序）
+const handleEditSort = (article: any) => {
+  ElMessageBox.prompt(
+    t('admin.article.list.table.menu.sort_prompt'),
+    t('admin.article.list.table.menu.set_sort'),
+    {
+      confirmButtonText: t('admin.general.btn.update'),
+      cancelButtonText: t('admin.general.btn.cancel'),
+      inputValue: String(article.sort ?? 0),
+      inputPattern: /^-?\d+$/,
+      inputErrorMessage: t('admin.article.list.table.menu.sort_invalid')
+    }
+  )
+    .then(async ({ value }) => {
+      try {
+        const res = await updateArticleSort(article.id, parseInt(value, 10))
+        if (res.code === 1) {
+          ElMessage.success(t('admin.article.list.table.menu.sort_success'))
+          loadArticles()
+        } else {
+          ElMessage.error(res.msg || t('admin.article.list.table.menu.sort_error'))
+        }
+      } catch {
+        ElMessage.error(t('admin.article.list.table.menu.sort_error'))
+      }
+    })
+    .catch(() => {})
+}
+
 const handleAction = (
-  command: 'pin' | 'preview' | 'cancel' | 'restore' | 'delete' | 'recommend' | 'featured',
+  command: 'pin' | 'sort' | 'preview' | 'cancel' | 'restore' | 'delete' | 'recommend' | 'featured',
   article: any
 ) => {
   switch (command) {
+    case 'sort':
+      handleEditSort(article)
+      break
     case 'pin':
       console.log('Pin article:', article.id)
       handleUpdateOpStatus(command, article)
@@ -623,6 +666,25 @@ const handleAction = (
       break
     case 'cancel':
       console.log('Cancel scheduled article:', article.id)
+      // 取消定时发布：状态从 scheduled 改回 draft（与恢复同路径）
+      ElMessageBox.confirm(
+        t('admin.article.dialog.cancel.description'),
+        t('admin.article.dialog.cancel.title'),
+        {
+          confirmButtonText: t('admin.article.dialog.cancel.confirm'),
+          cancelButtonText: t('admin.article.dialog.cancel.cancel'),
+          type: 'info'
+        }
+      ).then(async () => {
+        try {
+          await updateArticleStatus(article.id, 'draft')
+          ElMessage.success(t('admin.article.dialog.cancel.success'))
+          loadArticles()
+          loadArticlesCount()
+        } catch (error) {
+          ElMessage.error(t('admin.article.dialog.cancel.error'))
+        }
+      })
       break
     case 'restore':
       console.log('Restore article:', article.id)
@@ -640,6 +702,7 @@ const handleAction = (
           await updateArticleStatus(article.id, 'draft')
           ElMessage.success(t('admin.article.dialog.restore.success'))
           loadArticles()
+          loadArticlesCount()
         } catch (error) {
           ElMessage.error(t('admin.article.dialog.restore.error'))
         }
@@ -663,6 +726,7 @@ const handleAction = (
             await deleteArticle(article.id)
             ElMessage.success(t('admin.article.dialog.permanent_delete.success'))
             loadArticles()
+            loadArticlesCount()
           } catch (error) {
             ElMessage.error(t('admin.article.dialog.permanent_delete.error'))
           }
@@ -682,6 +746,7 @@ const handleAction = (
             await updateArticleStatus(article.id, 'deleted')
             ElMessage.success(t('admin.article.dialog.soft_delete.success'))
             loadArticles()
+            loadArticlesCount()
           } catch (error) {
             ElMessage.error(t('admin.article.dialog.soft_delete.error'))
           }
@@ -692,9 +757,14 @@ const handleAction = (
 }
 
 // 为模板中的下拉菜单事件创建包装函数
-const onArticleAction = (article: any) => {
-  return (command: 'pin' | 'preview' | 'cancel' | 'restore' | 'delete' | 'recommend' | 'featured') =>
-    handleAction(command, article)
+// el-dropdown 的 command 事件处理器：直接接收 (article, command) 双参数。
+// 注意不要写成柯里化 —— 模板里 @command="fn(article)" 是 inline 表达式，
+// 返回的内层函数会被丢弃，command 永远传不进来（表现为点击菜单无反应）
+const onArticleAction = (
+  article: any,
+  command: 'pin' | 'preview' | 'cancel' | 'restore' | 'delete' | 'recommend' | 'featured'
+) => {
+  handleAction(command, article)
 }
 
 const isMobile = ref(false)

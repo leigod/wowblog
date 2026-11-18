@@ -1,239 +1,248 @@
 <template>
-  <div class="docbook-container">
-    <!-- 文档书头部 -->
-    <div v-if="docbook" class="docbook-header">
-      <div class="cover-section">
-        <img v-if="docbook.cover" :src="docbook.cover" :alt="docbook.name" class="docbook-cover" />
-        <div v-else class="docbook-cover-placeholder">
-          <span class="icon">{{ docbook.icon || '?' }}</span>
-        </div>
+  <div class="docbook-page">
+    <div v-if="loading" class="book-state">{{ t('doc.loading') }}</div>
+    <!-- 文档书不存在：友好错误页 + 其他文档书建议 -->
+    <div v-else-if="!docbook" class="error-state">
+      <div class="error-icon">
+        <el-icon :size="34"><Collection /></el-icon>
       </div>
-      <div class="info-section">
-        <h1 class="docbook-title">{{ docbook.name }}</h1>
-        <p v-if="docbook.description" class="docbook-description">{{ docbook.description }}</p>
-        <div class="docbook-meta">
-          <span class="meta-item">
-            <i class="icon-file"></i> {{ docbook.doc_count }}{{ t('doc.articles_count') }}
-          </span>
-          <span v-if="docbook.author_name" class="meta-item">
-            <i class="icon-user"></i> {{ docbook.author_name }}
-          </span>
+      <h2 class="error-title">{{ t('doc.docbook_not_found_title') }}</h2>
+      <p class="error-desc">{{ t('doc.docbook_not_found') }}</p>
+      <div class="error-actions">
+        <el-button @click="router.push('/')">{{ t('doc.error_back_home') }}</el-button>
+      </div>
+      <div v-if="otherBooks.length" class="error-suggestions">
+        <p class="suggestions-label">{{ t('doc.error_try_books') }}</p>
+        <div class="suggestions-list">
+          <router-link v-for="b in otherBooks" :key="b.id"
+            :to="`/docs/${b.slug}`" class="suggestion-link">
+            {{ b.name }}
+          </router-link>
         </div>
       </div>
     </div>
 
-    <!-- 搜索框 -->
-    <div v-if="docbook?.allow_search" class="search-section">
-      <input
-        v-model="searchKeyword"
-        type="text"
-        :placeholder="t('doc.search_placeholder')"
-        class="search-input"
-        @input="handleSearch"
-      />
-    </div>
-
-    <!-- 主内容区 -->
-    <div class="docbook-content">
-      <!-- 侧边栏 -->
-      <aside v-if="docbook?.show_sidebar && docTree.length > 0" class="doc-sidebar">
-        <div class="sidebar-header">
-          <h3>{{ t('doc.toc') }}</h3>
+    <template v-else>
+      <!-- 书籍封面区：封面 + 书名 + 简介 + 元信息 + 入口 -->
+      <header class="book-hero">
+        <div class="book-cover">
+          <img v-if="docbook.cover" :src="docbook.cover" :alt="docbook.name" />
+          <div v-else class="book-cover-fallback">
+            <span>{{ coverLetter }}</span>
+          </div>
         </div>
-        <div class="sidebar-content">
-          <DocTree :tree="docTree" :docbook-slug="docbookSlug" @select="handleSelectDoc" />
-        </div>
-      </aside>
 
-      <!-- 主文档区 -->
-      <main class="doc-main">
-        <div v-if="searchResults.length > 0" class="search-results">
-          <h3>{{ t('doc.search_results') }}</h3>
-          <ul class="result-list">
-            <li v-for="doc in searchResults" :key="doc.id" class="result-item">
+        <div class="book-intro">
+          <p class="book-kicker">{{ t('doc.book_label') }}</p>
+          <h1 class="book-title">{{ docbook.name }}</h1>
+          <p v-if="docbook.description" class="book-desc">{{ docbook.description }}</p>
+
+          <div class="book-meta">
+            <span>{{ docbook.doc_count }} {{ t('doc.articles_count') }}</span>
+            <template v-if="docbook.author_name">
+              <span class="dot">·</span>
+              <span>{{ docbook.author_name }}</span>
+            </template>
+            <template v-if="updatedText">
+              <span class="dot">·</span>
+              <span>{{ t('doc.updated') }} {{ updatedText }}</span>
+            </template>
+          </div>
+
+          <div v-if="startDocSlug" class="book-actions">
+            <router-link :to="`/docs/${docbookSlug}/${startDocSlug}`" class="book-cta">
+              {{ t('doc.start_reading') }}
+              <el-icon><ArrowRight /></el-icon>
+            </router-link>
+          </div>
+        </div>
+      </header>
+
+      <!-- 书内搜索 -->
+      <div v-if="docbook.allow_search" class="book-search">
+        <el-input
+          v-model="searchKeyword"
+          :placeholder="t('doc.search_placeholder')"
+          :prefix-icon="Search"
+          size="large"
+          clearable
+          @input="onSearchInput"
+          @clear="clearSearch"
+        />
+      </div>
+
+      <!-- 搜索结果 -->
+      <section v-if="isSearching" class="book-section">
+        <div class="section-head">
+          <h2 class="section-title">{{ t('doc.search_results') }}</h2>
+          <span v-if="searchResults.length" class="section-count">
+            {{ searchResults.length }}
+          </span>
+        </div>
+
+        <div v-if="searchResults.length" class="search-list">
+          <router-link
+            v-for="item in searchResults"
+            :key="item.id"
+            :to="`/docs/${docbookSlug}/${item.slug}`"
+            class="search-row"
+          >
+            <span class="search-row-title">{{ item.title }}</span>
+            <p v-if="item.excerpt" class="search-row-excerpt">{{ item.excerpt }}</p>
+          </router-link>
+        </div>
+        <p v-else class="book-empty">{{ t('doc.search_empty') }}</p>
+      </section>
+
+      <!-- 章节目录 -->
+      <section v-else class="book-section">
+        <div class="section-head">
+          <h2 class="section-title">{{ t('doc.doc_index') }}</h2>
+          <span class="section-count">{{ docbook.doc_count }} {{ t('doc.articles_count') }}</span>
+        </div>
+
+        <div v-if="sections.length" class="chapter-grid">
+          <article v-for="(section, index) in sections" :key="section.id" class="chapter-card">
+            <div class="chapter-head">
+              <span class="chapter-index">{{ pad(index + 1) }}</span>
               <router-link
-                :to="`/docs/${docbookSlug}/${doc.slug}`"
-                class="result-link"
-                @click="clearSearch"
+                :to="`/docs/${docbookSlug}/${section.slug}`"
+                class="chapter-title"
+                :title="section.title"
               >
-                <h4>{{ doc.title }}</h4>
-                <p v-if="doc.excerpt" class="result-excerpt">{{ doc.excerpt }}</p>
+                {{ section.title }}
               </router-link>
-            </li>
-          </ul>
-        </div>
-
-        <div v-else-if="currentDoc" class="doc-content">
-          <article class="doc-article">
-            <h1 class="doc-title">{{ currentDoc.title }}</h1>
-            <div class="doc-meta">
-              <span class="meta-item">{{ t('doc.views') }} {{ currentDoc.view_count }}</span>
             </div>
-            <div v-if="currentDoc.content" class="markdown-body" v-html="renderedContent"></div>
-            <div v-else class="doc-empty">{{ t('doc.no_content') }}</div>
+
+            <ul v-if="section.children.length" class="chapter-links">
+              <li v-for="child in section.children.slice(0, MAX_LINKS)" :key="child.id">
+                <router-link
+                  :to="`/docs/${docbookSlug}/${child.slug}`"
+                  :title="child.title"
+                >
+                  {{ child.title }}
+                </router-link>
+              </li>
+              <li v-if="section.children.length > MAX_LINKS" class="chapter-more">
+                +{{ section.children.length - MAX_LINKS }}
+              </li>
+            </ul>
+
+            <router-link
+              v-else
+              :to="`/docs/${docbookSlug}/${section.slug}`"
+              class="chapter-read"
+            >
+              {{ t('doc.read') }}
+              <el-icon><ArrowRight /></el-icon>
+            </router-link>
           </article>
-
-          <!-- 文档导航 -->
-          <nav v-if="navigation" class="doc-navigation">
-            <router-link
-              v-if="navigation.prev"
-              :to="`/docs/${docbookSlug}/${navigation.prev.slug}`"
-              class="nav-link prev"
-            >
-              <span class="nav-label">{{ t('doc.prev') }}</span>
-              <span class="nav-title">{{ navigation.prev.title }}</span>
-            </router-link>
-            <router-link
-              v-if="navigation.next"
-              :to="`/docs/${docbookSlug}/${navigation.next.slug}`"
-              class="nav-link next"
-            >
-              <span class="nav-label">{{ t('doc.next') }}</span>
-              <span class="nav-title">{{ navigation.next.title }}</span>
-            </router-link>
-          </nav>
-
-          <!-- 面包屑 -->
-          <nav v-if="navigation?.breadcrumbs?.length" class="breadcrumbs">
-            <router-link
-              v-for="crumb in navigation.breadcrumbs"
-              :key="crumb.id"
-              :to="`/docs/${docbookSlug}/${crumb.slug}`"
-              class="breadcrumb-link"
-            >
-              {{ crumb.title }}
-            </router-link>
-          </nav>
         </div>
 
-        <div v-else-if="docbook?.home_doc_id" class="doc-loading">
-          {{ t('doc.loading') }}
-        </div>
-
-        <div v-else class="doc-empty-state">
-          <h2>{{ t('doc.welcome_title') }}</h2>
-          <p>{{ t('doc.welcome_message') }}</p>
-        </div>
-      </main>
-    </div>
+        <p v-else class="book-empty">{{ t('doc.no_docs') }}</p>
+      </section>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { ArrowRight, Search, Collection } from '@element-plus/icons-vue'
 import { docApi, docBookApi, type DocBook, type Doc, type DocTreeNode } from '@/api'
 
 const { t } = useI18n()
-
 const route = useRoute()
-const docbookSlug = computed(() => route.params.docbookSlug as string)
-const docSlug = computed(() => route.params.docSlug as string | undefined)
 
-// 状态
+// 章节卡片里最多平铺几条子页，超出只显示计数，避免单卡过长
+const MAX_LINKS = 4
+
+const docbookSlug = computed(() => route.params.docbookSlug as string)
+const router = useRouter()
+
+// 错误页建议：拿不到当前书时，推荐其他文档书
+const otherBooks = ref<DocBook[]>([])
+const loadOtherBooks = async () => {
+  try {
+    const response = await docBookApi.list({ skip: 0, limit: 10 })
+    otherBooks.value = (response.data || []).filter(b => b.slug !== docbookSlug.value).slice(0, 6)
+  } catch {
+    otherBooks.value = []
+  }
+}
+
 const docbook = ref<DocBook | null>(null)
 const docTree = ref<DocTreeNode[]>([])
-const currentDoc = ref<Doc | null>(null)
-const navigation = ref<any>(null)
+const loading = ref(true)
 const searchKeyword = ref('')
 const searchResults = ref<Doc[]>([])
 
-// Markdown渲染 (简单实现，实际可使用markdown-it等库)
-const renderedContent = computed(() => {
-  if (!currentDoc.value?.content) return ''
-  return currentDoc.value.content
-    // 简单的markdown转换
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*)\*/gim, '<em>$1</em>')
-    .replace(/\n/gim, '<br>')
+// 顶层节点即章节；有子页的展示子页清单，没有子页的作为单篇入口
+const sections = computed(() => docTree.value)
+
+const coverLetter = computed(() => (docbook.value?.name || '?').trim().slice(0, 1))
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+const updatedText = computed(() => {
+  const ts = docbook.value?.updatetime
+  if (!ts) return ''
+  const d = new Date(ts * 1000)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 })
 
-// 加载文档书
-const loadDocBook = async () => {
-  try {
-    const response = await docBookApi.getBySlug(docbookSlug.value)
-    if (response.data) {
-      docbook.value = response.data
-    }
-  } catch (error) {
-    console.error('加载文档书失败:', error)
+const findSlugById = (nodes: DocTreeNode[], id: number): string | null => {
+  for (const node of nodes) {
+    if (node.id === id) return node.slug
+    const hit = findSlugById(node.children || [], id)
+    if (hit) return hit
   }
+  return null
 }
 
-// 加载文档树
-const loadDocTree = async () => {
-  if (!docbook.value) return
-  try {
-    const response = await docApi.getTree(docbook.value.id)
-    if (response.data) {
-      docTree.value = response.data
-    }
-  } catch (error) {
-    console.error('加载文档树失败:', error)
+const firstLeafSlug = (nodes: DocTreeNode[]): string | null => {
+  for (const node of nodes) {
+    if (!node.children?.length) return node.slug
+    const deep = firstLeafSlug(node.children)
+    if (deep) return deep
   }
+  return null
 }
 
-// 加载文档
-const loadDoc = async (slug: string) => {
-  if (!docbook.value) return
-  try {
-    const [docRes, navRes] = await Promise.all([
-      docApi.getBySlug(slug, docbook.value.id),
-      docApi.getNavigation((currentDoc.value?.id || docbook.value.home_doc_id)!)
-    ])
-    if (docRes.data) {
-      currentDoc.value = docRes.data
-    }
-    if (navRes.data) {
-      navigation.value = navRes.data
-    }
-  } catch (error) {
-    console.error('加载文档失败:', error)
+// 「开始阅读」优先落到后台配置的首页文档，没配就取第一篇叶子文档
+const startDocSlug = computed(() => {
+  const homeId = docbook.value?.home_doc_id
+  if (homeId) {
+    const slug = findSlugById(docTree.value, homeId)
+    if (slug) return slug
   }
-}
+  return firstLeafSlug(docTree.value)
+})
 
-// 加载首页文档
-const loadHomeDoc = async () => {
-  if (!docbook.value?.home_doc_id) return
-  try {
-    const response = await docApi.getById(docbook.value.home_doc_id)
-    if (response.data) {
-      currentDoc.value = response.data
-      loadNavigation(response.data.id)
-    }
-  } catch (error) {
-    console.error('加载首页文档失败:', error)
-  }
-}
+// 输入即搜，加 300ms 防抖，避免逐字触发请求
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+const isSearching = computed(() => searchKeyword.value.trim().length > 0)
 
-const loadNavigation = async (docId: number) => {
-  try {
-    const response = await docApi.getNavigation(docId)
-    if (response.data) {
-      navigation.value = response.data
-    }
-  } catch (error) {
-    console.error('加载导航失败:', error)
-  }
-}
-
-// 搜索
-const handleSearch = async () => {
-  if (!docbook.value || !searchKeyword.value.trim()) {
+const onSearchInput = () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  if (!isSearching.value) {
     searchResults.value = []
     return
   }
+  searchTimer = setTimeout(() => {
+    void runSearch()
+  }, 300)
+}
+
+const runSearch = async () => {
+  if (!docbook.value) return
   try {
-    const response = await docApi.search(docbook.value.id, searchKeyword.value)
-    if (response.data) {
-      searchResults.value = response.data
-    }
+    const response = await docApi.search(docbook.value.id, searchKeyword.value.trim())
+    searchResults.value = response.data || []
   } catch (error) {
     console.error('搜索失败:', error)
+    searchResults.value = []
   }
 }
 
@@ -242,371 +251,480 @@ const clearSearch = () => {
   searchResults.value = []
 }
 
-const handleSelectDoc = (doc: DocTreeNode) => {
-  // 由路由导航处理
+const loadDocBook = async () => {
+  try {
+    const response = await docBookApi.getBySlug(docbookSlug.value)
+    docbook.value = response.data || null
+  } catch (error) {
+    console.error('加载文档书失败:', error)
+    docbook.value = null
+  }
+  if (!docbook.value) await loadOtherBooks()
 }
 
-// 监听路由变化
-watch(() => route.params, async (newParams) => {
-  if (newParams.docSlug) {
-    await loadDoc(newParams.docSlug as string)
-  } else if (docbook.value?.home_doc_id) {
-    await loadHomeDoc()
+const loadDocTree = async () => {
+  if (!docbook.value) return
+  try {
+    const response = await docApi.getTree(docbook.value.id)
+    docTree.value = response.data || []
+  } catch (error) {
+    console.error('加载文档树失败:', error)
+    docTree.value = []
   }
-})
+}
 
-onMounted(async () => {
+const load = async () => {
+  loading.value = true
   await loadDocBook()
-  if (docbook.value) {
-    await loadDocTree()
-    if (docSlug.value) {
-      await loadDoc(docSlug.value)
-    } else if (docbook.value.home_doc_id) {
-      await loadHomeDoc()
-    }
-  }
-})
-</script>
+  if (docbook.value) await loadDocTree()
+  loading.value = false
+}
 
-<script lang="ts">
-// 文档树组件
-import { defineComponent, h } from 'vue'
-import type { PropType } from 'vue'
-import { RouterLink } from 'vue-router'
-
-const DocTree = defineComponent({
-  name: 'DocTree',
-  props: {
-    tree: {
-      type: Array as PropType<any[]>,
-      required: true
-    },
-    docbookSlug: {
-      type: String,
-      required: true
-    }
-  },
-  emits: ['select'],
-  setup(props, { emit }) {
-    const renderNode = (node: any, level: number = 0) => {
-      const hasChildren = node.children && node.children.length > 0
-      const className = 'tree-node level-' + level
-
-      const children = [
-        h(RouterLink, {
-          to: '/docs/' + props.docbookSlug + '/' + node.slug,
-          class: 'tree-node-link',
-          onClick: () => emit('select', node)
-        }, () => [
-          h('span', { class: 'node-icon' }, hasChildren ? '?' : '-'),
-          h('span', { class: 'node-title' }, node.title)
-        ])
-      ]
-
-      if (hasChildren) {
-        children.push(
-          h('div', { class: 'tree-children' },
-            node.children.map((child: any) => renderNode(child, level + 1))
-          )
-        )
-      }
-
-      return h('div', { class: className, key: node.id }, children)
-    }
-
-    return () => h('div', { class: 'doc-tree' },
-      props.tree.map(node => renderNode(node))
-    )
-  }
+watch(docbookSlug, () => {
+  searchKeyword.value = ''
+  searchResults.value = []
+  void load()
 })
 
-export { DocTree }
+onMounted(load)
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 </script>
 
 <style scoped>
-.docbook-container {
-  max-width: 1400px;
+.docbook-page {
+  /* .el-main 是 flex 容器，只写 max-width 会让本页按内容宽度收缩，
+     章节网格被挤成 2 列；必须显式撑满再由 max-width 收口。 */
+  width: 100%;
+  max-width: 1120px;
+  box-sizing: border-box;
   margin: 0 auto;
-  padding: 20px;
+  padding: 32px 24px 80px;
 }
 
-.docbook-header {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 32px;
-  padding: 24px;
-  background: var(--card-bg);
-  border-radius: 8px;
+.book-state {
+  padding: 120px 0;
+  text-align: center;
+  color: var(--wy-text-tertiary);
 }
 
-.cover-section {
-  flex-shrink: 0;
+/* ---------- 友好错误页（文档书不存在） ---------- */
+.error-state {
+  max-width: 560px;
+  width: 100%;
+  margin: 48px auto;
+  padding: 48px 40px;
+  text-align: center;
+  background: var(--wy-bg-surface);
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-lg);
+  box-shadow: var(--wy-shadow-card);
 }
 
-.docbook-cover {
-  width: 120px;
-  height: 160px;
-  object-fit: cover;
-  border-radius: 8px;
-}
-
-.docbook-cover-placeholder {
-  width: 120px;
-  height: 160px;
-  background: var(--accent-color);
-  border-radius: 8px;
+.error-icon {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48px;
-  color: white;
+  border-radius: 50%;
+  background: var(--wy-brand-soft);
+  color: var(--wy-brand);
 }
 
-.info-section {
-  flex: 1;
+.error-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--wy-text-primary);
 }
 
-.docbook-title {
-  font-size: 28px;
-  margin: 0 0 12px 0;
-}
-
-.docbook-description {
-  color: var(--text-secondary);
-  margin: 0 0 16px 0;
+.error-desc {
+  margin: 0 0 24px;
+  font-size: 14px;
   line-height: 1.6;
+  color: var(--wy-text-secondary);
 }
 
-.docbook-meta {
+.error-actions {
   display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.error-suggestions {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--wy-border-subtle);
+}
+
+.suggestions-label {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--wy-text-tertiary);
+}
+
+.suggestions-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.suggestion-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--wy-text-secondary);
+  text-decoration: none;
+  background: var(--wy-bg-muted);
+  border-radius: var(--wy-radius-md);
+  transition: color var(--wy-duration) var(--wy-easing),
+    background-color var(--wy-duration) var(--wy-easing);
+}
+
+.suggestion-link:hover {
+  color: var(--wy-brand);
+  background: var(--wy-brand-soft);
+}
+
+/* ---------- 封面区 ---------- */
+.book-hero {
+  display: flex;
+  gap: 28px;
+  padding: 32px;
+  background: var(--wy-bg-surface);
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-lg);
+}
+
+.book-cover {
+  flex: none;
+  width: 104px;
+  height: 140px;
+  border-radius: var(--wy-radius-md);
+  overflow: hidden;
+  box-shadow: var(--wy-shadow-card);
+}
+
+.book-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(150deg, var(--wy-brand) 0%, var(--wy-brand-hover) 100%);
+  color: var(--wy-on-brand);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.book-intro {
+  flex: 1;
+  min-width: 0;
+}
+
+.book-kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wy-text-tertiary);
+}
+
+.book-title {
+  margin: 0 0 10px;
+  font-size: 28px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--wy-text-primary);
+}
+
+.book-desc {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--wy-text-secondary);
+}
+
+.book-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--wy-text-tertiary);
+}
+
+.book-meta .dot {
+  color: var(--wy-text-placeholder);
+}
+
+.book-actions {
+  margin-top: 20px;
+}
+
+.book-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 18px;
+  border-radius: var(--wy-radius-md);
+  background: var(--wy-brand);
+  color: var(--wy-on-brand);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--wy-duration) var(--wy-easing),
+    transform var(--wy-duration) var(--wy-easing);
+}
+
+.book-cta:hover {
+  background: var(--wy-brand-hover);
+  transform: translateY(-1px);
+}
+
+/* ---------- 搜索 ---------- */
+.book-search {
+  margin: 20px 0 8px;
+}
+
+/* ---------- 章节区 ---------- */
+.book-section {
+  margin-top: 32px;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--wy-text-primary);
+}
+
+.section-count {
+  font-size: 13px;
+  color: var(--wy-text-tertiary);
+}
+
+.chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
   gap: 16px;
 }
 
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.search-section {
-  margin-bottom: 24px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 16px;
-}
-
-.docbook-content {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 24px;
-  align-items: start;
-}
-
-.doc-sidebar {
-  position: sticky;
-  top: 20px;
-  background: var(--card-bg);
-  border-radius: 8px;
-  padding: 16px;
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
-}
-
-.sidebar-header h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-}
-
-.doc-tree {
+.chapter-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  padding: 18px 20px;
+  background: var(--wy-bg-surface);
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-md);
+  transition: border-color var(--wy-duration) var(--wy-easing),
+    box-shadow var(--wy-duration) var(--wy-easing),
+    transform var(--wy-duration) var(--wy-easing);
 }
 
-.tree-node {
-  padding-left: 0;
+.chapter-card:hover {
+  border-color: var(--wy-border-strong);
+  box-shadow: var(--wy-shadow-card-hover);
+  transform: translateY(-2px);
 }
 
-.tree-node.level-1 { padding-left: 16px; }
-.tree-node.level-2 { padding-left: 32px; }
-.tree-node.level-3 { padding-left: 48px; }
+.chapter-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
 
-.tree-node-link {
+.chapter-index {
+  flex: none;
+  font-family: var(--wy-font-mono);
+  font-size: 12px;
+  color: var(--wy-text-placeholder);
+}
+
+.chapter-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wy-text-primary);
+  text-decoration: none;
+  transition: color var(--wy-duration) var(--wy-easing);
+}
+
+.chapter-title:hover {
+  color: var(--wy-brand);
+}
+
+.chapter-links {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.chapter-links li {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  color: var(--text-primary);
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chapter-links li::before {
+  content: '';
+  flex: none;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--wy-border-strong);
+}
+
+.chapter-links a {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--wy-text-secondary);
   text-decoration: none;
-  transition: background 0.2s;
+  transition: color var(--wy-duration) var(--wy-easing);
 }
 
-.tree-node-link:hover {
-  background: var(--hover-bg);
+.chapter-links a:hover {
+  color: var(--wy-brand);
 }
 
-.router-link-active .tree-node-link {
-  background: var(--accent-color);
-  color: white;
+.chapter-more {
+  color: var(--wy-text-placeholder);
 }
 
-.doc-main {
-  min-height: 500px;
+.chapter-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 12px;
+  font-size: 13px;
+  color: var(--wy-text-tertiary);
+  text-decoration: none;
+  transition: color var(--wy-duration) var(--wy-easing);
 }
 
-.doc-content {
-  background: var(--card-bg);
-  border-radius: 8px;
-  padding: 32px;
+.chapter-read:hover {
+  color: var(--wy-brand);
 }
 
-.doc-article {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.doc-title {
-  font-size: 32px;
-  margin: 0 0 16px 0;
-}
-
-.doc-meta {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 24px;
-  color: var(--text-secondary);
-}
-
-.markdown-body {
-  line-height: 1.8;
-  font-size: 16px;
-}
-
-.doc-empty {
-  text-align: center;
-  padding: 60px 0;
-  color: var(--text-secondary);
-}
-
-.doc-empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  background: var(--card-bg);
-  border-radius: 8px;
-}
-
-.doc-navigation {
+/* ---------- 搜索结果 ---------- */
+.search-list {
   display: flex;
-  justify-content: space-between;
-  margin-top: 48px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-color);
+  flex-direction: column;
+  background: var(--wy-bg-surface);
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-md);
+  overflow: hidden;
 }
 
-.nav-link {
-  flex: 1;
-  max-width: 45%;
-  padding: 16px;
-  background: var(--hover-bg);
-  border-radius: 8px;
-  text-decoration: none;
-  color: var(--text-primary);
-  transition: background 0.2s;
-}
-
-.nav-link:hover {
-  background: var(--border-color);
-}
-
-.nav-link.next {
-  text-align: right;
-  margin-left: auto;
-}
-
-.nav-label {
+.search-row {
   display: block;
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-
-.nav-title {
-  display: block;
-  font-weight: 500;
-}
-
-.breadcrumbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-color);
-}
-
-.breadcrumb-link {
-  color: var(--accent-color);
+  padding: 14px 20px;
   text-decoration: none;
-  font-size: 14px;
+  border-bottom: 1px solid var(--wy-border-subtle);
+  transition: background-color var(--wy-duration) var(--wy-easing);
 }
 
-.breadcrumb-link:hover {
-  text-decoration: underline;
-}
-
-.search-results {
-  background: var(--card-bg);
-  border-radius: 8px;
-  padding: 24px;
-}
-
-.result-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.result-item {
-  border-bottom: 1px solid var(--border-color);
-  padding: 16px 0;
-}
-
-.result-item:last-child {
+.search-row:last-child {
   border-bottom: none;
 }
 
-.result-link {
+.search-row:hover {
+  background: var(--wy-bg-muted);
+}
+
+.search-row-title {
   display: block;
-  text-decoration: none;
-  color: var(--text-primary);
-}
-
-.result-link h4 {
-  margin: 0 0 8px 0;
-}
-
-.result-excerpt {
-  color: var(--text-secondary);
   font-size: 14px;
-  margin: 0;
+  font-weight: 500;
+  color: var(--wy-text-primary);
 }
 
+.search-row-excerpt {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--wy-text-tertiary);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.book-empty {
+  margin: 0;
+  padding: 48px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--wy-text-tertiary);
+}
+
+/* ---------- 响应式 ---------- */
 @media (max-width: 768px) {
-  .docbook-content {
-    grid-template-columns: 1fr;
+  .docbook-page {
+    padding: 20px 16px 48px;
   }
 
-  .doc-sidebar {
-    position: static;
-    max-height: 400px;
+  .book-hero {
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px;
+  }
+
+  .book-cover {
+    width: 76px;
+    height: 102px;
+  }
+
+  .book-cover-fallback {
+    font-size: 30px;
+  }
+
+  .book-title {
+    font-size: 22px;
+  }
+
+  .chapter-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

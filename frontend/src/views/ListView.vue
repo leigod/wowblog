@@ -35,27 +35,21 @@
                   <div class="wy-channel-img-wrapper">
                     <div class="wy-channel-img">
                       <img :src="tagPageInfo.image || default_tag_image" alt="" />
+                      <!-- 装饰圆环：单组描边，颜色交给 token（深色自动跟随），
+                           不再用两套 hex + dark: 类切换 -->
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="400"
                         height="400"
                         fill="none"
                         class="svg-position"
+                        aria-hidden="true"
                       >
-                        <g class="dark:hidden block">
-                          <circle cx="200" cy="200" r="48" stroke="#e4e4e7cc"></circle>
-                          <circle cx="200" cy="200" r="72" stroke="#e4e4e7aa"></circle>
-                          <circle cx="200" cy="200" r="96" stroke="#e4e4e755"></circle>
-                          <circle cx="200" cy="200" r="120" stroke="#e4e4e733"></circle>
-                          <circle cx="200" cy="200" r="144" stroke="#e4e4e705"></circle>
-                        </g>
-                        <g class="hidden dark:block">
-                          <circle cx="200" cy="200" r="48" stroke="#3f3f46cc"></circle>
-                          <circle cx="200" cy="200" r="72" stroke="#3f3f46aa"></circle>
-                          <circle cx="200" cy="200" r="96" stroke="#3f3f4655"></circle>
-                          <circle cx="200" cy="200" r="120" stroke="#3f3f4633"></circle>
-                          <circle cx="200" cy="200" r="144" stroke="#3f3f4605"></circle>
-                        </g>
+                        <circle cx="200" cy="200" r="48" stroke="currentColor" stroke-opacity="1"></circle>
+                        <circle cx="200" cy="200" r="72" stroke="currentColor" stroke-opacity="0.75"></circle>
+                        <circle cx="200" cy="200" r="96" stroke="currentColor" stroke-opacity="0.5"></circle>
+                        <circle cx="200" cy="200" r="120" stroke="currentColor" stroke-opacity="0.3"></circle>
+                        <circle cx="200" cy="200" r="144" stroke="currentColor" stroke-opacity="0.15"></circle>
                       </svg>
                     </div>
                   </div>
@@ -921,26 +915,29 @@ defineOptions({ name: 'ListView' })
   height: 64px;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 .wy-channel-img img {
+  position: relative;
+  z-index: 1;
   width: 3rem;
   height: 3rem;
   max-width: 100%;
   border-radius: 9999px;
   object-fit: cover;
 }
+/* 圆环以图片容器中心为基准，不再用 -168/-176 的绝对像素魔法数 */
 .wy-channel-img svg {
   position: absolute;
-  top: -168px;
-  left: -176px;
+  top: 50%;
+  left: 50%;
+  width: 400px;
+  height: 400px;
+  transform: translate(-50%, -50%);
   z-index: 0;
-  opacity: 0.2;
-}
-.dark\:hidden {
-  display: none;
-}
-.dark\:block {
-  display: block;
+  opacity: 0.55;
+  color: var(--wy-text-placeholder, var(--el-text-color-placeholder));
+  pointer-events: none;
 }
 
 .wy-load-more {

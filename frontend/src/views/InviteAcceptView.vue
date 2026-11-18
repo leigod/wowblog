@@ -238,27 +238,67 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 与登录页同一套底：浅画布 + 两团品牌色静态光晕（原为 135deg 紫色渐变） */
 .invite-accept-container {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  padding: 24px 20px;
+  background: var(--wy-bg-canvas, var(--el-bg-color-page, #fafafa));
 }
 
+.invite-accept-container::before,
+.invite-accept-container::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.invite-accept-container::before {
+  width: 720px;
+  height: 720px;
+  top: -280px;
+  left: -220px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--wy-brand, #2f5fd0) 14%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+.invite-accept-container::after {
+  width: 560px;
+  height: 560px;
+  bottom: -240px;
+  right: -180px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--wy-brand, #2f5fd0) 10%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+/* 卡片：16px + 0 20px 60px 重阴影 → 12px + 细描边 + 一档卡片阴影 */
 .invite-card {
-  background: white;
-  border-radius: 16px;
-  padding: 48px;
-  max-width: 560px;
+  position: relative;
+  z-index: 1;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 520px;
+  padding: 40px;
+  box-sizing: border-box;
+  background: var(--wy-bg-surface, #ffffff);
+  border: 1px solid var(--wy-border-subtle, #e4e4e7);
+  border-radius: var(--wy-radius-lg, 12px);
+  box-shadow: var(--wy-shadow-card-hover, 0 4px 16px rgba(24, 24, 27, 0.1));
   text-align: center;
 }
 
 .loading-icon {
-  color: var(--el-color-primary);
+  color: var(--wy-brand, var(--el-color-primary));
   animation: rotate 1s linear infinite;
 }
 
@@ -272,13 +312,32 @@ onMounted(() => {
 }
 
 .invite-card h2 {
-  margin-top: 20px;
-  color: var(--el-text-color-primary);
+  margin: 16px 0 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--wy-text-secondary, var(--el-text-color-regular));
 }
 
+/* 结果图标：64px 裸图标 → 72px 浅底圆形容器，语义色由 token 混合得到 */
 .success-icon-wrapper,
 .error-icon-wrapper {
-  margin-bottom: 24px;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.success-icon-wrapper {
+  background: var(--el-color-success-light-9, #eef7f2);
+  background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+}
+
+.error-icon-wrapper {
+  background: var(--el-color-danger-light-9, #fdf1f0);
+  background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
 }
 
 .success-icon {
@@ -290,49 +349,64 @@ onMounted(() => {
 }
 
 .invite-card h1 {
-  font-size: 28px;
-  margin: 0 0 16px 0;
-  color: var(--el-text-color-primary);
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--wy-text-primary, var(--el-text-color-primary));
 }
 
-.invite-description {
-  font-size: 16px;
-  color: var(--el-text-color-regular);
-  line-height: 1.6;
-  margin-bottom: 32px;
+.invite-description,
+.error-message,
+.success-message {
+  margin: 0 0 24px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--wy-text-secondary, var(--el-text-color-regular));
 }
 
+/* 权限清单：12px 圆角浅底块 → 8px + 细描边，逐项细分隔线 */
 .permissions-section {
-  background: var(--el-fill-color-light);
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
+  padding: 18px 20px;
   text-align: left;
+  background: var(--wy-bg-muted, var(--el-fill-color-light));
+  border: 1px solid var(--wy-border-subtle, #e4e4e7);
+  border-radius: var(--wy-radius-md, 8px);
 }
 
 .permissions-section h3 {
-  font-size: 16px;
-  margin: 0 0 16px 0;
-  color: var(--el-text-color-primary);
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--wy-text-primary, var(--el-text-color-primary));
 }
 
 .permissions-list {
-  list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .permissions-list li {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
-  color: var(--el-text-color-regular);
+  padding: 7px 0;
+  font-size: 14px;
+  color: var(--wy-text-secondary, var(--el-text-color-regular));
+  border-top: 1px solid var(--wy-border-subtle, #e4e4e7);
+}
+
+.permissions-list li:first-child {
+  border-top: none;
 }
 
 .permissions-list li .el-icon {
   color: var(--el-color-success);
   flex-shrink: 0;
+  font-size: 14px;
 }
 
 .action-buttons {
@@ -342,10 +416,33 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.error-message,
-.success-message {
-  font-size: 16px;
-  color: var(--el-text-color-regular);
-  margin-bottom: 24px;
+.action-buttons .el-alert {
+  width: 100%;
+  border-radius: var(--wy-radius-md, 8px);
+}
+
+@media (max-width: 560px) {
+  .invite-accept-container {
+    padding: 20px 14px;
+  }
+
+  .invite-card {
+    padding: 28px 20px;
+  }
+
+  .invite-card h1 {
+    font-size: 20px;
+  }
+
+  .invite-description,
+  .error-message,
+  .success-message {
+    font-size: 14px;
+  }
+
+  .action-buttons .el-button {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 </style>

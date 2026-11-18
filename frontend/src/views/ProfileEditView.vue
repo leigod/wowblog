@@ -682,7 +682,7 @@ const handleSelectTag = (tag: string, input: string) => {
 
 .profile-edit-card {
   padding: 30px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--wy-shadow-card);
 }
 
 .avatar-upload-item {

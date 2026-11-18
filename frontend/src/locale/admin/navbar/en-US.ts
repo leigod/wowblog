@@ -10,6 +10,11 @@ export default {
     label: 'Label',
     type: 'Type',
     value: 'Value',
+    status: 'Status',
+    status_text: {
+      normal: 'Normal',
+      hidden: 'Hidden'
+    },
     actions: 'Actions'
   },
   form: {
@@ -46,6 +51,10 @@ export default {
       series: 'Loading series...'
     },
     update: {
+      status: {
+        success: 'Status updated successfully',
+        error: 'Failed to update status'
+      },
       sort: {
         success: 'Sort updated successfully',
         error: 'Failed to update sort'

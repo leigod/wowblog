@@ -7,8 +7,13 @@
     <!-- 搜索和筛选栏 -->
     <div class="notifications-toolbar">
       <div class="search-wrapper">
-        <el-input v-model="searchQuery" :placeholder="t('notification.search_placeholder')" :prefix-icon="Search"
-          clearable class="search-input" />
+        <el-input
+          v-model="searchQuery"
+          :placeholder="t('notification.search_placeholder')"
+          :prefix-icon="Search"
+          clearable
+          class="search-input"
+        />
       </div>
 
       <div class="filter-tabs-wrapper">
@@ -33,9 +38,15 @@
     <div v-loading="loading" class="notifications-list">
       <!-- 批量操作栏 -->
       <div v-if="selectedIds.length > 0" class="batch-actions">
-        <span class="selected-count">{{ t('notification.selected_count', { n: selectedIds.length }) }}</span>
-        <el-button text @click="handleMarkSelectedRead">{{ t('notification.mark_selected_read') }}</el-button>
-        <el-button text type="danger" @click="handleDeleteSelected">{{ t('notification.delete_selected') }}</el-button>
+        <span class="selected-count">{{
+          t('notification.selected_count', { n: selectedIds.length })
+        }}</span>
+        <el-button text @click="handleMarkSelectedRead">{{
+          t('notification.mark_selected_read')
+        }}</el-button>
+        <el-button text type="danger" @click="handleDeleteSelected">{{
+          t('notification.delete_selected')
+        }}</el-button>
         <el-button text @click="clearSelection">{{ t('notification.cancel_selection') }}</el-button>
       </div>
 
@@ -50,13 +61,20 @@
       <!-- 通知项列表（使用 checkbox-group 包裹） -->
       <el-checkbox-group v-model="selectedIds">
         <!-- 通知项 -->
-        <div v-for="item in filteredNotifications" :key="item.id" class="notification-item"
-          :class="{ unread: !item.is_read, important: item.is_important }">
+        <div
+          v-for="item in filteredNotifications"
+          :key="item.id"
+          class="notification-item"
+          :class="{ unread: !item.is_read, important: item.is_important }"
+        >
           <!-- 复选框 -->
           <el-checkbox :value="item.id" class="notification-checkbox" @click.stop />
 
           <!-- 重要性标记 -->
-          <el-icon :class="['important-star', { active: item.is_important }]" @click.stop="toggleImportant(item)">
+          <el-icon
+            :class="['important-star', { active: item.is_important }]"
+            @click.stop="toggleImportant(item)"
+          >
             <StarFilled />
           </el-icon>
 
@@ -81,7 +99,13 @@
 
           <!-- 悬停操作按钮 -->
           <div class="notification-actions">
-            <el-button v-if="!item.is_read" type="primary" link size="small" @click.stop="handleMarkAsRead(item.id)">
+            <el-button
+              v-if="!item.is_read"
+              type="primary"
+              link
+              size="small"
+              @click.stop="handleMarkAsRead(item.id)"
+            >
               {{ t('notification.mark_as_read') }}
             </el-button>
             <el-dropdown trigger="click" @command="handleItemCommand(item)">
@@ -92,7 +116,11 @@
                     <el-icon>
                       <StarFilled />
                     </el-icon>
-                    {{ item.is_important ? t('notification.unmark_important') : t('notification.mark_important') }}
+                    {{
+                      item.is_important
+                        ? t('notification.unmark_important')
+                        : t('notification.mark_important')
+                    }}
                   </el-dropdown-item>
                   <el-dropdown-item command="delete" divided>
                     <el-icon>
@@ -110,9 +138,15 @@
 
     <!-- 分页 -->
     <div v-if="total > pageSize" class="pagination-wrapper">
-      <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :total="total"
-        :page-sizes="[10, 20, 50]" layout="prev, pager, next" @size-change="loadNotifications"
-        @current-change="loadNotifications" />
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50]"
+        layout="prev, pager, next"
+        @size-change="loadNotifications"
+        @current-change="loadNotifications"
+      />
     </div>
   </div>
 </template>
@@ -160,21 +194,23 @@ const filteredNotifications = computed(() => {
 
   // 按筛选条件过滤
   if (activeFilter.value === 'unread') {
-    result = result.filter(item => !item.is_read)
+    result = result.filter((item) => !item.is_read)
   } else if (activeFilter.value === 'comment') {
-    result = result.filter(item => item.type === 'comment' || item.type === 'reply')
+    result = result.filter((item) => item.type === 'comment' || item.type === 'reply')
   } else if (activeFilter.value === 'like_bookmark') {
-    result = result.filter(item => item.type === 'like' || item.type === 'bookmark')
+    result = result.filter((item) => item.type === 'like' || item.type === 'bookmark')
   } else if (activeFilter.value === 'mention') {
-    result = result.filter(item => item.type === 'article_mention' || item.type === 'comment_mention')
+    result = result.filter(
+      (item) => item.type === 'article_mention' || item.type === 'comment_mention'
+    )
   } else if (activeFilter.value === 'system') {
-    result = result.filter(item => item.type === 'system' || item.type === 'warning')
+    result = result.filter((item) => item.type === 'system' || item.type === 'warning')
   }
 
   // 按搜索关键词过滤
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    result = result.filter(item => {
+    result = result.filter((item) => {
       return (
         item.title.toLowerCase().includes(query) ||
         (item.content && item.content.toLowerCase().includes(query))
@@ -225,12 +261,17 @@ const clearSelection = () => {
 const toggleImportant = async (item: notificationApi.NotificationListItem) => {
   // 这里需要调用后端API，暂时只在前端更新
   item.is_important = !item.is_important
-  ElMessage.success(item.is_important ? t('notification.marked_important') : t('notification.unmarked_important'))
+  ElMessage.success(
+    item.is_important ? t('notification.marked_important') : t('notification.unmarked_important')
+  )
 }
 
 // 处理下拉菜单命令的包装函数
-const handleItemCommand = (item: notificationApi.NotificationListItem) => {
-  return (command: string) => handleCommand(command, item)
+// el-dropdown 的 command 事件处理器：直接接收 (item, command) 双参数。
+// 不要写成柯里化 —— 模板里 @command="fn(item)" 是 inline 表达式，
+// 返回的内层函数会被丢弃，command 永远传不进来（表现为菜单项点击无反应）
+const handleItemCommand = (item: notificationApi.NotificationListItem, command: string) => {
+  handleCommand(command, item)
 }
 
 // 加载通知列表
@@ -247,7 +288,7 @@ const loadNotifications = async () => {
 
     if (res.code === 1 && res.data) {
       // 模拟添加 is_important 字段
-      notifications.value = res.data.map(item => ({
+      notifications.value = res.data.map((item) => ({
         ...item,
         is_important: false
       }))
@@ -278,7 +319,7 @@ const handleMarkAsRead = async (id: number) => {
   try {
     const res = await notificationApi.markAsRead(id)
     if (res.code === 1) {
-      const item = notifications.value.find(n => n.id === id)
+      const item = notifications.value.find((n) => n.id === id)
       if (item) {
         item.is_read = true
       }
@@ -296,7 +337,7 @@ const handleMarkAllRead = async () => {
   try {
     const res = await notificationApi.markAllAsRead()
     if (res.code === 1) {
-      notifications.value.forEach(item => {
+      notifications.value.forEach((item) => {
         item.is_read = true
       })
       await loadUnreadCount()
@@ -311,10 +352,8 @@ const handleMarkAllRead = async () => {
 // 标记选中项为已读
 const handleMarkSelectedRead = async () => {
   try {
-    await Promise.all(
-      selectedIds.value.map(id => notificationApi.markAsRead(id))
-    )
-    notifications.value.forEach(item => {
+    await Promise.all(selectedIds.value.map((id) => notificationApi.markAsRead(id)))
+    notifications.value.forEach((item) => {
       if (selectedIds.value.includes(item.id)) {
         item.is_read = true
       }
@@ -333,7 +372,7 @@ const handleDelete = async (id: number) => {
   try {
     const res = await notificationApi.deleteNotification(id)
     if (res.code === 1) {
-      notifications.value = notifications.value.filter(n => n.id !== id)
+      notifications.value = notifications.value.filter((n) => n.id !== id)
       await loadUnreadCount()
       ElMessage.success(t('notification.delete_success'))
     }
@@ -346,12 +385,8 @@ const handleDelete = async (id: number) => {
 // 删除选中项
 const handleDeleteSelected = async () => {
   try {
-    await Promise.all(
-      selectedIds.value.map(id => notificationApi.deleteNotification(id))
-    )
-    notifications.value = notifications.value.filter(
-      n => !selectedIds.value.includes(n.id)
-    )
+    await Promise.all(selectedIds.value.map((id) => notificationApi.deleteNotification(id)))
+    notifications.value = notifications.value.filter((n) => !selectedIds.value.includes(n.id))
     await loadUnreadCount()
     clearSelection()
     ElMessage.success(t('notification.delete_selected_success'))
@@ -370,11 +405,13 @@ const handleCommand = (command: string, item: notificationApi.NotificationListIt
       confirmButtonText: t('common.confirm'),
       cancelButtonText: t('common.cancel'),
       type: 'warning'
-    }).then(() => {
-      handleDelete(item.id)
-    }).catch(() => {
-      // 取消删除
     })
+      .then(() => {
+        handleDelete(item.id)
+      })
+      .catch(() => {
+        // 取消删除
+      })
   }
 }
 
@@ -409,54 +446,60 @@ onMounted(() => {
 
 <style scoped>
 .notifications-page {
-  max-width: 900px;
+  width: 100%;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 28px 24px 64px;
+  box-sizing: border-box;
 }
 
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--el-text-color-primary);
 }
 
+/* 工具栏：搜索独占一行（320 宽），第二行「胶囊筛选 + 全部已读」左右分置 */
 .notifications-toolbar {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 20px;
   width: 100%;
 }
 
 .search-wrapper {
-  /* flex: 1; */
-  /* min-width: 200px; */
-  width: 100%;
+  flex: 1 1 100%;
+  max-width: 320px;
 }
 
 .search-input {
-  /* max-width: 300px; */
   width: 100%;
 }
 
 .filter-tabs-wrapper {
-  /* flex: 1; */
+  flex: 1 1 auto;
   min-width: 0;
-  width: 100%;
 }
 
 .filter-tabs {
   width: 100%;
   overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
+/* el-tabs → 胶囊组：去掉底部长线与滑动条，逐项独立胶囊 */
 .filter-tabs :deep(.el-tabs__header) {
   margin: 0;
 }
@@ -465,18 +508,66 @@ onMounted(() => {
   padding: 0;
 }
 
+.filter-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.filter-tabs :deep(.el-tabs__active-bar) {
+  display: none;
+}
+
 .filter-tabs :deep(.el-tabs__nav) {
+  display: flex;
+  gap: 6px;
   border-bottom: none;
 }
 
 .filter-tabs :deep(.el-tabs__item) {
-  padding: 8px 16px;
-  font-size: 14px;
+  --filter-tab-pad-x: 14px;
+  height: 30px;
+  line-height: 30px;
+  padding: 0 var(--filter-tab-pad-x);
+  border-radius: var(--wy-radius-pill, 999px);
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--wy-text-secondary, var(--el-text-color-secondary));
+  background-color: var(--wy-bg-muted, var(--el-fill-color-light));
+  transition:
+    background-color var(--wy-duration, 160ms) var(--wy-easing, ease),
+    color var(--wy-duration, 160ms) var(--wy-easing, ease),
+    border-color var(--wy-duration, 160ms) var(--wy-easing, ease);
+}
+
+/* element-plus 默认将首/尾 tab 的 padding 清零
+   (.el-tabs--top > .el-tabs__header .el-tabs__item:nth-child(2) / :last-child，
+   nav 里 active-bar 占据首个子元素位置，故第一个 tab 是 nth-child(2))，
+   其特异性 (0,4,0) 高于上方规则；胶囊样式需要首尾留白一致，此处提权还原 */
+.filter-tabs :deep(.el-tabs__header .el-tabs__item:nth-child(2)),
+.filter-tabs :deep(.el-tabs__header .el-tabs__item:first-child) {
+  padding-left: var(--filter-tab-pad-x);
+}
+
+.filter-tabs :deep(.el-tabs__header .el-tabs__item:last-child) {
+  padding-right: var(--filter-tab-pad-x);
+}
+
+.filter-tabs :deep(.el-tabs__item:hover) {
+  background-color: var(--wy-brand-soft, var(--el-color-primary-light-9));
+  color: var(--wy-brand, var(--el-color-primary));
+}
+
+.filter-tabs :deep(.el-tabs__item.is-active) {
+  background-color: var(--wy-brand, var(--el-color-primary));
+  border-color: var(--wy-brand, var(--el-color-primary));
+  color: var(--wy-on-brand, #ffffff);
+  font-weight: 500;
 }
 
 .header-actions {
   display: flex;
   gap: 8px;
+  margin-left: auto;
 }
 
 .notifications-list {
@@ -487,10 +578,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 16px;
-  background: var(--el-color-primary-light-9);
-  border-radius: 8px;
-  margin-bottom: 16px;
+  padding: 10px 16px;
+  background: var(--wy-brand-soft, var(--el-color-primary-light-9));
+  border: 1px solid var(--el-color-primary-light-8, var(--wy-border-subtle));
+  border-radius: var(--wy-radius-md, 8px);
+  margin-bottom: 12px;
 }
 
 .selected-count {
@@ -513,31 +605,37 @@ onMounted(() => {
   font-size: 16px;
 }
 
+/* 列表项：12px 圆角 + 组件自写描边 → 规范 8px + subtle 细描边、无阴影 */
 .notification-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 20px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color);
-  border-radius: 12px;
-  margin-bottom: 12px;
-  transition: all 0.2s ease;
+  padding: 14px 16px;
+  background: var(--wy-bg-surface, var(--el-bg-color));
+  border: 1px solid var(--wy-border-subtle, var(--el-border-color-light));
+  border-radius: var(--wy-radius-md, 8px);
+  margin-bottom: 8px;
+  transition:
+    border-color var(--wy-duration, 160ms) var(--wy-easing, ease),
+    box-shadow var(--wy-duration, 160ms) var(--wy-easing, ease);
   position: relative;
 }
 
 .notification-item:hover {
-  border-color: var(--el-color-primary-light-5);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-color: var(--wy-border-strong, var(--el-border-color));
+  box-shadow: var(--wy-shadow-card, 0 2px 12px rgba(24, 24, 27, 0.06));
 }
 
+/* 未读：浅品牌底 + 左侧内阴影色条（不用 border-left，避免改变内容宽度） */
 .notification-item.unread {
-  background: var(--el-color-primary-light-9);
-  border-left: 3px solid var(--el-color-primary);
+  background: var(--wy-brand-soft, var(--el-color-primary-light-9));
+  border-color: var(--el-color-primary-light-8, var(--wy-border-subtle));
+  box-shadow: inset 3px 0 0 var(--wy-brand, var(--el-color-primary));
 }
 
+/* 重要标记优先于未读：星标条目左侧统一走琥珀色 */
 .notification-item.important {
-  border-left: 3px solid #f59e0b;
+  box-shadow: inset 3px 0 0 var(--el-color-warning);
 }
 
 .notification-checkbox {
@@ -546,61 +644,66 @@ onMounted(() => {
 
 .important-star {
   flex-shrink: 0;
-  font-size: 18px;
-  color: var(--el-border-color);
+  font-size: 17px;
+  color: var(--wy-border-strong, var(--el-border-color));
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color var(--wy-duration, 160ms) var(--wy-easing, ease);
 }
 
-.important-star:hover {
-  color: #f59e0b;
-}
-
+.important-star:hover,
 .important-star.active {
-  color: #f59e0b;
+  color: var(--el-color-warning);
 }
 
+/* 类型图标：原来 6 套独立渐变，各自一组色相；收敛为「浅色底 + 语义色图标」，
+   底色由语义色混合得到，深色模式下自动跟着变，不需要第二套值。 */
 .notification-icon {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: var(--wy-radius-md, 8px);
   flex-shrink: 0;
-  color: var(--el-text-color-secondary);
+  background: var(--wy-bg-muted, var(--el-fill-color-light));
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
 }
 
 .notification-icon.type-comment,
 .notification-icon.type-reply {
-  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-  color: #0284c7;
+  background: var(--wy-brand-soft, #eef3fd);
+  background: color-mix(in srgb, var(--el-color-primary) 12%, transparent);
+  color: var(--el-color-primary);
 }
 
 .notification-icon.type-article_mention,
 .notification-icon.type-comment_mention {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  color: #d97706;
+  background: var(--el-color-warning-light-9, #fbf5ec);
+  background: color-mix(in srgb, var(--el-color-warning) 14%, transparent);
+  color: var(--el-color-warning);
 }
 
 .notification-icon.type-like {
-  background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
-  color: #db2777;
+  background: var(--el-color-danger-light-9, #fdf1f0);
+  background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+  color: var(--el-color-danger);
 }
 
 .notification-icon.type-bookmark {
-  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-  color: #16a34a;
+  background: var(--el-color-success-light-9, #eef7f2);
+  background: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+  color: var(--el-color-success);
 }
 
 .notification-icon.type-system {
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-  color: #6b7280;
+  background: var(--wy-bg-muted, var(--el-fill-color-light));
+  color: var(--el-color-info);
 }
 
 .notification-icon.type-warning {
-  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-  color: #dc2626;
+  background: var(--el-color-danger-light-9, #fdf1f0);
+  background: color-mix(in srgb, var(--el-color-danger) 14%, transparent);
+  color: var(--el-color-danger);
 }
 
 .notification-content {
@@ -609,37 +712,46 @@ onMounted(() => {
   cursor: pointer;
 }
 
+/* 未读 / 已读的视觉差异：未读加粗 + 主文字色，已读降到正文级灰色。
+   时间与摘要统一到 tertiary，避免和标题抢层级。 */
 .notification-title {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-  line-height: 1.4;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--wy-text-secondary, var(--el-text-color-regular));
+  line-height: 1.45;
   margin-bottom: 4px;
+}
+
+.notification-item.unread .notification-title {
+  font-weight: 600;
+  color: var(--wy-text-primary, var(--el-text-color-primary));
 }
 
 .notification-meta {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
 }
 
 .notification-time {
   flex-shrink: 0;
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
 }
 
 .notification-snippet {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
 }
 
 .unread-indicator {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--el-color-primary);
+  background: var(--wy-brand, var(--el-color-primary));
   flex-shrink: 0;
 }
 
@@ -688,16 +800,19 @@ onMounted(() => {
 
   /* 移动端筛选标签 - Element Plus tabs 自动支持横向滚动 */
   .filter-tabs :deep(.el-tabs__item) {
-    padding: 8px 12px;
+    --filter-tab-pad-x: 12px;
+    height: 28px;
+    line-height: 28px;
     font-size: 13px;
   }
 
   .header-actions {
-    width: 100%;
+    width: auto;
+    margin-left: 0;
   }
 
   .header-actions .el-button {
-    width: 100%;
+    width: auto;
   }
 
   .notification-item {

@@ -35,7 +35,8 @@ router = APIRouter()
 # 导航列表
 @router.get('/navs/list', response_model=ApiResponse[List[schemasNavs.BlogNav]])
 async def get_nav_list(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    navlist = await crudNavs.get_navs(db, skip=skip, limit=limit)
+    # 管理端返回全部状态（含隐藏项），否则隐藏的导航无法恢复
+    navlist = await crudNavs.get_navs(db, skip=skip, limit=limit, status=None)
     return success(data=navlist)
 
 

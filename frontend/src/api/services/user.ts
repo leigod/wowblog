@@ -261,6 +261,38 @@ export const getUserActivity = (
 }
 
 /**
+ * 用户评论条目接口定义（个人资料页「评论」Tab）
+ */
+export interface UserCommentItem {
+  id: number
+  comment: string
+  likes: number
+  replys: number
+  createtime: number
+  article_id: number
+  article_title: string
+  article_slug: string
+}
+
+/**
+ * 获取指定用户发表的评论列表
+ * @param username 用户名
+ * @param limit 返回数量限制
+ * @param offset 偏移量
+ * @returns Promise<{code, data: {list: UserCommentItem[], total: number}}>
+ */
+export const getUserComments = (
+  username: string,
+  limit: number = 10,
+  offset: number = 0
+): Promise<{ code: number; data: { list: UserCommentItem[]; total: number } }> => {
+  return request({
+    url: `/blog/users/${username}/comments?limit=${limit}&offset=${offset}`,
+    method: 'GET'
+  })
+}
+
+/**
  * 用户隐私设置接口定义
  */
 export interface UserPrivacySettings {

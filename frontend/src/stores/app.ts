@@ -45,6 +45,8 @@ export const useAppStore = defineStore('app', {
       site_logo: null,
       site_title: null,
       site_favicon: null,
+      // 文章审核开关：true 时 Author 发布固定草稿（发布状态选择隐藏），审核者放行
+      article_review_enabled: true,
       disable_comment: false,
       dark_mode: 'system', // system, dark, light
       enable_register: true, // 是否开启注册，默认开启
@@ -183,6 +185,8 @@ export const useAppStore = defineStore('app', {
       this.site_logo = config.site_logo || this.site_logo
       this.site_title = config.site_title || this.site_title
       this.site_favicon = config.site_favicon || this.site_favicon
+      // 审核开关：未配置视为开启（默认严格）
+      this.article_review_enabled = config.article_review_enabled !== 0
       this.disable_comment = config.disable_comment || false
       this.dark_mode = config.dark_mode || 'system'
       this.enable_register = config.enable_register !== undefined ? config.enable_register === 1 : true

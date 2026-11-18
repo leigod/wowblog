@@ -13,10 +13,13 @@ import VueSocialSharing from 'vue-social-sharing'
 
 import './styles/_variables.scss'
 import './styles/_keyframe-animations.scss'
+// 视觉精修样式层（纯 CSS 变量覆盖，不改任何模板/逻辑）
+// 开关在 index.html 的 <html class="wy-refine">；注释本行即可整体回滚
+import './styles/refinement/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import en from 'element-plus/es/locale/lang/en'
-import i18n from './locale/index'
+import i18n, { isBackendPath } from './locale/index'
 
 import App from './App.vue'
 import router from './router'
@@ -67,7 +70,7 @@ router.beforeEach((to, from, next) => {
 	document.title = title
 
 	// 根据路由切换前后台语言（完全独立，互不影响）
-	const isAdminRoute = to.path.startsWith('/admin/')
+	const isAdminRoute = isBackendPath(to.path)
 	const ADMIN_LOCALE_KEY = 'admin-locale'
 	const BLOG_LOCALE_KEY = 'blog-locale'
 

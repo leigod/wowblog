@@ -1,0 +1,21 @@
+@import './tokens.css';
+@import './refine.css';
+
+/* ============================================================
+   WOW Blog · 视觉精修样式层（可一键回滚）
+   ------------------------------------------------------------
+   引入位置：src/main.ts
+   开关位置：index.html 的 <html class="wy-refine">
+
+   生效逻辑：
+     html.wy-refine  -> 精修版
+     html（无 class）-> 线上原版，完全不受本层任何规则影响
+
+   回滚（任选其一，均不影响业务代码）：
+     A. 删掉 index.html 里 html 上的 wy-refine（保留文件，随时再开）
+     B. 注释掉 main.ts 里的 import './styles/refinement/index.css'
+     C. 删除 src/styles/refinement/ 整个目录 + 上述两处引用
+
+   本层不修改任何 .vue 模板、DOM 结构、数据绑定、事件、路由，
+   也不修改 vite.config.ts 与构建流程。
+   ============================================================ */

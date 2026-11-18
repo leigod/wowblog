@@ -35,11 +35,14 @@ DATABASE_URL = f"mysql+aiomysql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_
 # - pool_recycle: 连接回收时间，防止数据库断开连接
 # - pool_timeout: 获取连接的超时时间
 # - echo: SQL日志（生产环境应关闭）
+# 注意：pool_pre_ping 必须关闭 —— sqlalchemy 2.0.42 的 aiomysql 方言存在
+# ping(reconnect) 签名不匹配的回归 bug（AsyncAdapt_aiomysql_connection.ping 缺参
+# TypeError），复用池中空闲连接时随机 500。连接存活由 pool_recycle 兜底。
 engine = create_async_engine(
     DATABASE_URL,
     pool_size=10,           # 常驻连接池大小
     max_overflow=20,         # 额外连接数
-    pool_pre_ping=True,     # 启用连接健康检查
+    pool_pre_ping=False,    # 禁用：与 aiomysql 0.2.0 不兼容（见上方说明）
     pool_recycle=3600,      # 1小时后自动回收连接
     pool_timeout=30,        # 获取连接超时时间（秒）
     echo=False,             # 生产环境关闭SQL日志

@@ -6,17 +6,24 @@
           <span style="margin-right: 10px; font-weight: 600">{{ siteTitle }}</span>
           <el-dropdown trigger="click" @command="handleMenuClick">
             <span style="display: flex; align-items: center">
-              <iconify-icon icon="material-symbols-light:menu" /><el-icon
-                class="el-icon--right"><arrow-down /></el-icon>
+              <iconify-icon icon="material-symbols-light:menu" /><el-icon class="el-icon--right"
+                ><arrow-down
+              /></el-icon>
             </span>
 
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-for="item in filteredMenuItems" :key="item.index" :index="item.index"
-                  :command="item.route"><el-icon>
+                <el-dropdown-item
+                  v-for="item in filteredMenuItems"
+                  :key="item.index"
+                  :index="item.index"
+                  :command="item.route"
+                  :divided="!!item.dividerBefore"
+                  ><el-icon>
                     <component :is="item.icon" />
                   </el-icon>
-                  {{ item.title }}</el-dropdown-item>
+                  {{ item.title }}</el-dropdown-item
+                >
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -52,8 +59,12 @@
                 </el-dropdown-item>
                 <el-dropdown-item command="toggle-language">
                   <span class="language-icon">
-                    <IconifyIcon icon="heroicons:language" :width="16" :height="16"
-                      :color="isAdminDark ? '#FFFFFFFF' : 'currentColor'" />
+                    <IconifyIcon
+                      icon="heroicons:language"
+                      :width="16"
+                      :height="16"
+                      color="currentColor"
+                    />
                   </span>
                   {{ $t('admin.general.top.switch_language') }}
                 </el-dropdown-item>
@@ -88,16 +99,22 @@
       </div>
       <div v-else class="admin-header">
         <!-- 管理后台头部 -->
-        <div class="header-logo">
-          <img style="width: 100px" :src="siteLogo" alt="logo" />
+        <div class="header-logo" v-if="siteLogo">
+          <img :src="siteLogo" alt="logo" />
         </div>
-        <div class="header-name">
+        <div class="header-name" v-else>
           <span>{{ siteTitle }}</span>
         </div>
         <div class="flex-grow"></div>
         <div class="header-actions">
           <el-tooltip :content="$t('admin.general.top.create')">
-            <el-button type="primary" :icon="EditPen" circle size="large" @click="navigateToCreateArticle" />
+            <el-button
+              type="primary"
+              :icon="EditPen"
+              circle
+              size="large"
+              @click="navigateToCreateArticle"
+            />
           </el-tooltip>
           <el-tooltip :content="$t('admin.general.top.home')">
             <div class="round-button" @click="handleNavigateToHome">
@@ -106,7 +123,9 @@
               </el-icon>
             </div>
           </el-tooltip>
-          <el-tooltip :content="$t('admin.general.top.darkmode.' + (isAdminDark ? 'light' : 'dark'))">
+          <el-tooltip
+            :content="$t('admin.general.top.darkmode.' + (isAdminDark ? 'light' : 'dark'))"
+          >
             <div v-if="!isAdminDark" class="round-button" @click="handleAdminDarkMode(true)">
               <el-icon :size="22">
                 <Moon />
@@ -120,9 +139,8 @@
           </el-tooltip>
           <el-dropdown :hide-on-click="false" @command="handleChange">
             <span class="el-dropdown-link">
-              <IconifyIcon icon="heroicons:language" style="font-size: 24px"
-                :color="isAdminDark ? '#FFFFFFFF' : 'currentColor'"
-                :stroke="isAdminDark ? '#FFFFFFFF' : 'currentColor'" />
+              <!-- 颜色跟随父级 token，不再按深色开关写死纯白 -->
+              <IconifyIcon icon="heroicons:language" style="font-size: 24px" color="currentColor" />
             </span>
             <template #dropdown>
               <el-dropdown-menu>
@@ -133,8 +151,12 @@
             </template>
           </el-dropdown>
           <!--消息通知-->
-          <el-popover :width="360" placement="bottom-end" trigger="click"
-            popper-style="box-shadow: rgb(14 18 22 / 35%) 0px 10px 38px -10px, rgb(14 18 22 / 20%) 0px 10px 20px -15px; padding: 5px;">
+          <el-popover
+            :width="360"
+            placement="bottom-end"
+            trigger="click"
+            popper-style="box-shadow: var(--wy-shadow-pop, var(--el-box-shadow-light)); padding: 5px;"
+          >
             <template #reference>
               <div class="notification-icon-wrapper" @click="handleNotificationIconClick">
                 <el-icon :size="22" class="notification-bell">
@@ -148,32 +170,46 @@
             </template>
           </el-popover>
           <!--个人资料-->
-          <el-popover :width="300"
-            popper-style="box-shadow: rgb(14 18 22 / 35%) 0px 10px 38px -10px, rgb(14 18 22 / 20%) 0px 10px 20px -15px; padding: 20px;"
-            placement="bottom-end">
+          <el-popover
+            :width="300"
+            popper-style="box-shadow: var(--wy-shadow-pop, var(--el-box-shadow-light)); padding: 20px;"
+            placement="bottom-end"
+          >
             <template #reference>
               <el-avatar :src="appStore.userInfo.profile_image || defaultAvatar" />
             </template>
             <template #default>
-              <div class="demo-rich-conent" style="
+              <div
+                class="demo-rich-conent"
+                style="
                   display: flex;
                   gap: 16px;
                   flex-direction: column;
                   justify-content: center;
                   align-items: center;
-                ">
-                <el-avatar :size="80" :src="appStore.userInfo.profile_image || defaultAvatar"
-                  style="margin-bottom: 8px" />
+                "
+              >
+                <el-avatar
+                  :size="80"
+                  :src="appStore.userInfo.profile_image || defaultAvatar"
+                  style="margin-bottom: 8px"
+                />
                 <div>
-                  <p class="demo-rich-content__name" style="margin: 0; font-weight: 500; text-align: center">
+                  <p
+                    class="demo-rich-content__name"
+                    style="margin: 0; font-weight: 500; text-align: center"
+                  >
                     {{ appStore.userInfo.full_name }}
                   </p>
-                  <p class="demo-rich-content__mention" style="
+                  <p
+                    class="demo-rich-content__mention"
+                    style="
                       margin: 0;
                       font-size: 14px;
                       color: var(--el-color-info);
                       text-align: center;
-                    ">
+                    "
+                  >
                     @{{ appStore.userInfo.username
                     }}<span style="font-size: 12px; margin-left: 10px">
                       <el-tag :class="`role-tag role-${userRole.toLowerCase()}`">
@@ -184,13 +220,28 @@
                 </div>
                 <el-divider />
                 <div style="width: 100%; display: flex; justify-content: space-between">
-                  <el-button type="default" size="small" style="margin-bottom: 10px" @click="navigateToProfile">
+                  <el-button
+                    type="default"
+                    size="small"
+                    style="margin-bottom: 10px"
+                    @click="navigateToProfile"
+                  >
                     {{ $t('admin.general.top.profile') }}
                   </el-button>
-                  <el-button type="default" size="small" style="margin-bottom: 10px" @click="navigateToChangePassword">
+                  <el-button
+                    type="default"
+                    size="small"
+                    style="margin-bottom: 10px"
+                    @click="navigateToChangePassword"
+                  >
                     {{ $t('admin.general.top.change_password') }}
                   </el-button>
-                  <el-button type="danger" size="small" style="margin-bottom: 10px" @click="handleLogout">
+                  <el-button
+                    type="danger"
+                    size="small"
+                    style="margin-bottom: 10px"
+                    @click="handleLogout"
+                  >
                     {{ $t('admin.general.top.logout') }}
                   </el-button>
                 </div>
@@ -204,16 +255,31 @@
     <el-container class="admin-container">
       <!-- 管理后台侧边栏 -->
 
-      <el-menu v-if="!isMobile" default-active="1" class="el-menu-vertical-demo" :collapse="isCollapse"
-        @open="handleOpen" @close="handleClose" @select="handleSelect" :router="enableRouter">
-        <el-menu-item v-for="item in filteredMenuItems" :key="item.index" :index="item.index" :route="item.route">
-          <el-icon>
-            <component :is="item.icon" />
-          </el-icon>
-          <template #title>{{ item.title }}</template>
-        </el-menu-item>
+      <el-menu
+        v-if="!isMobile"
+        default-active="1"
+        class="el-menu-vertical-demo"
+        :collapse="isCollapse"
+        @open="handleOpen"
+        @close="handleClose"
+        @select="handleSelect"
+        :router="enableRouter"
+      >
+        <template v-for="item in filteredMenuItems" :key="item.index">
+          <li v-if="item.dividerBefore" class="creator-menu-divider" aria-hidden="true"></li>
+          <el-menu-item :index="item.index" :route="item.route">
+            <el-icon>
+              <component :is="item.icon" />
+            </el-icon>
+            <template #title>{{ item.title }}</template>
+          </el-menu-item>
+        </template>
         <el-divider />
-        <div v-if="!isCollapse" style="text-align: right; padding-right: 20px" @click="handleClose1">
+        <div
+          v-if="!isCollapse"
+          style="text-align: right; padding-right: 20px"
+          @click="handleClose1"
+        >
           <el-tooltip content="收起菜单">
             <el-icon>
               <DArrowLeft />
@@ -233,7 +299,8 @@
       <el-main class="admin-main">
         <div class="admin-breadcrumb">
           <el-breadcrumb :separator-icon="ArrowRight">
-            <el-breadcrumb-item :to="{ path: '/admin/dashboard' }">{{ $t('admin.general.breadcrumb.title')
+            <el-breadcrumb-item :to="{ path: '/admin/dashboard' }">{{
+              $t('admin.general.breadcrumb.title')
             }}</el-breadcrumb-item>
             <el-breadcrumb-item v-for="item in filteredBreadcrumbItems" :key="item.index">
               {{ item.title }}
@@ -276,7 +343,11 @@ import {
   Bell,
   OfficeBuilding,
   Notebook,
-  Lock
+  Lock,
+  UserFilled,
+  Brush,
+  PriceTag,
+  Files
 } from '@element-plus/icons-vue'
 import IconifyIcon from '@/components/IconIfy.vue'
 import NotificationPanel from '@/components/NotificationPanel.vue'
@@ -302,7 +373,7 @@ const loadNotificationStatus = async () => {
     if (res.code === 1) {
       const count = res.data || 0
       // 只有在有未读通知时才显示红点
-      if (hasNotificationDot.value !== (count > 0)) {
+      if (hasNotificationDot.value !== count > 0) {
         hasNotificationDot.value = count > 0
       }
     }
@@ -426,7 +497,7 @@ const menuItems = computed(() => [
     icon: Analytics,
     title: t('admin.general.side.menu.analytics'),
     roles: ['Admin'],
-    hideInSidebar: true  // 在侧边栏中隐藏，但保留用于面包屑导航
+    hideInSidebar: true // 在侧边栏中隐藏，但保留用于面包屑导航
   },
   {
     index: '3',
@@ -518,15 +589,58 @@ const menuItems = computed(() => [
     icon: Document,
     title: t('admin.general.side.menu.logs'),
     roles: ['Admin']
+  },
+  // ==================== Author 个人博客工作台 ====================
+  // 仅 Author 角色可见；Admin 想预览可直接访问 /creator/* 路由（不在菜单展示）
+  {
+    index: '21',
+    route: '/creator/settings',
+    icon: UserFilled,
+    title: t('creator.menu.settings'),
+    roles: ['Author'],
+    dividerBefore: true
+  },
+  {
+    index: '22',
+    route: '/creator/appearance',
+    icon: Brush,
+    title: t('creator.menu.appearance'),
+    roles: ['Author']
+  },
+  {
+    index: '23',
+    route: '/creator/categories',
+    icon: PriceTag,
+    title: t('creator.menu.categories'),
+    roles: ['Author']
+  },
+  {
+    index: '24',
+    route: '/creator/series',
+    icon: Collection,
+    title: t('creator.menu.series'),
+    roles: ['Author']
+  },
+  {
+    index: '25',
+    route: '/creator/navs',
+    icon: Guide,
+    title: t('creator.menu.navs'),
+    roles: ['Author']
+  },
+  {
+    index: '26',
+    route: '/creator/articles',
+    icon: Files,
+    title: t('creator.menu.articles'),
+    roles: ['Author']
   }
 ])
 
 // 根据用户角色过滤菜单项（侧边栏显示，排除隐藏项）
 const filteredMenuItems = computed(() => {
-  return menuItems.value.filter((item) =>
-    appStore.userRole &&
-    item.roles.includes(appStore.userRole) &&
-    !item.hideInSidebar
+  return menuItems.value.filter(
+    (item) => appStore.userRole && item.roles.includes(appStore.userRole) && !item.hideInSidebar
   )
 })
 
@@ -565,6 +679,11 @@ const handleSelect = (key: string | number, keyPath: (string | number)[]): void 
 }
 
 const navigateToCreateArticle = () => {
+  // 按角色分流：Author 的撰写页在 creator（/admin/articles/create 对其 403）
+  if (appStore.userRole === 'Author') {
+    window.open('/creator/articles/create', '_blank')
+    return
+  }
   window.open('/admin/articles/create', '_blank')
 }
 
@@ -689,17 +808,29 @@ const handleUserMenuCommand = (command: string) => {
 }
 
 // 监听路由变化，更新当前导航key
-watch(() => route.path, (newPath) => {
-  const item = menuItems.value.find((item) => item.route === newPath)
-  if (item) {
-    currentNavKey.value = item.index
-  }
-}, { immediate: true })
+watch(
+  () => route.path,
+  (newPath) => {
+    const item = menuItems.value.find((item) => item.route === newPath)
+    if (item) {
+      currentNavKey.value = item.index
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
 .flex-grow {
   flex-grow: 1;
+}
+
+/* Author 工作台菜单组的分组分割线（dividerBefore 标记的菜单项前） */
+.creator-menu-divider {
+  height: 1px;
+  margin: 6px 12px;
+  background-color: rgba(255, 255, 255, 0.15);
+  list-style: none;
 }
 
 .admin-layout {
@@ -735,6 +866,7 @@ watch(() => route.path, (newPath) => {
 
 .admin-header {
   width: 100%;
+  height: 100%;
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -762,6 +894,15 @@ watch(() => route.path, (newPath) => {
   padding: 0 20px;
 }
 
+.header-logo {
+  height: 100%;
+  width: 120px;
+}
+.header-logo img {
+  height: 100%;
+  width: 100%;
+  object-fit: fill;
+}
 .header-name {
   font-size: 2rem;
   font-weight: bold;
@@ -821,9 +962,11 @@ watch(() => route.path, (newPath) => {
   height: 16px !important;
 }
 
+/* 顶栏次级图标用 tertiary，hover 升品牌主色；变量带 EP 原生 fallback。
+   原 --el-color-text 并非 EP 变量，实际取不到值。 */
 .el-dropdown-link {
   cursor: pointer;
-  color: var(--el-color-text);
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
   display: flex;
   align-items: center;
   border: none;
@@ -833,7 +976,7 @@ watch(() => route.path, (newPath) => {
 .el-dropdown-link:hover {
   border: none;
   outline: none;
-  color: var(--el-menu-hover-text-color);
+  color: var(--wy-brand, var(--el-color-primary));
 }
 
 /* 通知图标样式 */

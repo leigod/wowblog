@@ -229,6 +229,22 @@ async def get_current_admin_user(
     return current_user
 
 
+async def get_current_blog_owner(
+    current_user: Annotated[schemas.User, Depends(get_current_user)],
+):
+    """获取 blog 持有者（Creator 工作台：仅 Admin 与 Author 可访问）。
+
+    Editor/Contributor/User 不开通个人 blog；数据层面由 crud 按
+    current_user.id 收敛，Admin 也只能操作自己的 blog 配置
+    （「替某用户管理 blog」的第一版明确不做）。
+    """
+    if current_user.status == "block":
+        raise HTTPException(status_code=403, detail="用户已被禁用")
+    if current_user.role not in ("Admin", "Author"):
+        raise HTTPException(status_code=403, detail="仅作者和管理员可访问")
+    return current_user
+
+
 async def get_current_editor_user(
     current_user: Annotated[schemas.User, Depends(get_current_user)],
 ):

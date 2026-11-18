@@ -65,13 +65,20 @@ cp .env.example .env
 
 ### 5. 初始化数据库
 
+全新安装只需导入仓库自带的全量结构文件，不需要按序执行增量迁移：
+
 ```bash
 # 创建数据库
 mysql -u root -p -e "CREATE DATABASE wowblog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# 运行迁移（如果有）
-# alembic upgrade head
+# 导入全量表结构 + 模板初始数据
+mysql -u root -p wowblog < migrations/wowblog.sql
 ```
+
+> `migrations/wowblog.sql` 包含全部 26 张表，并写入了与 `alembic/versions/` 一致的
+> head 版本号，因此容器启动时执行 `alembic upgrade head` 不会重复建表。
+> 初始管理员为 `admin` / `yourname@example.com`，初始密码 `admin123456`，
+> **首次登录后请立即修改密码**。
 
 ### 6. 启动服务
 
@@ -284,6 +291,10 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 ---
 
 ## 数据库迁移
+
+**全新安装不需要迁移**：直接导入 `migrations/wowblog.sql` 即可（见「初始化数据库」）。
+该文件是完整表结构快照，且已写入当前 head 版本号；`alembic upgrade head` 在全新库上
+会识别为已是最新，不会重复建表。下面两节仅用于**已有实例的升级**。
 
 ### 使用 Alembic（如果已配置）
 

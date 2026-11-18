@@ -28,6 +28,9 @@ class SiteConfig(BaseModel):
     enable_register: Literal[0, 1] = 1
     register_role: Literal['User', 'Contributor', 'Author'] = "User"
 
+    # 文章审核配置
+    # 审核总开关：开启时 Author 发布固定为草稿（发布状态选择隐藏），由 Admin/Editor 放行
+    article_review_enabled: Literal[0, 1] = 1
     # 文章审核通知配置
     enable_article_review_notification: Literal[0, 1] = 0
     article_review_notification_roles: Optional[str] = None  # JSON数组格式

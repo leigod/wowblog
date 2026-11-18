@@ -93,24 +93,41 @@
         <el-dropdown @command="handleBatchAction" v-if="selectedComments.length > 0">
           <el-button type="primary">
             {{ $t('admin.comment.list.batch_action') }} ({{ selectedComments.length }})
-            <IconifyIcon icon="lucide:chevron-down" style="margin-left: 4px" />
+            <el-icon style="margin-left: 4px">
+              <ArrowDown />
+            </el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="approve">
-                <IconifyIcon icon="lucide:check" /> {{ $t('admin.comment.actions.approve') }}
+                <el-icon>
+                  <Check />
+                </el-icon>
+                {{ $t('admin.comment.actions.approve') }}
               </el-dropdown-item>
               <el-dropdown-item command="reject">
-                <IconifyIcon icon="lucide:x" /> {{ $t('admin.comment.actions.reject') }}
+                <el-icon>
+                  <Close />
+                </el-icon>
+                {{ $t('admin.comment.actions.reject') }}
               </el-dropdown-item>
               <el-dropdown-item command="show">
-                <IconifyIcon icon="lucide:eye" /> {{ $t('admin.comment.actions.show') }}
+                <el-icon>
+                  <View />
+                </el-icon>
+                {{ $t('admin.comment.actions.show') }}
               </el-dropdown-item>
               <el-dropdown-item command="hide">
-                <IconifyIcon icon="lucide:eye-off" /> {{ $t('admin.comment.actions.hide') }}
+                <el-icon>
+                  <Hide />
+                </el-icon>
+                {{ $t('admin.comment.actions.hide') }}
               </el-dropdown-item>
               <el-dropdown-item command="delete" divided>
-                <IconifyIcon icon="lucide:trash-2" /> {{ $t('admin.comment.actions.delete') }}
+                <el-icon>
+                  <Delete />
+                </el-icon>
+                {{ $t('admin.comment.actions.delete') }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -165,41 +182,61 @@
 
             <div class="comment-stats">
               <span>
-                <IconifyIcon icon="lucide:heart" size="14" /> {{ comment.likes }}
+                <IconifyIcon icon="lucide:heart" width="14" height="14" /> {{ comment.likes }}
               </span>
               <span>
-                <IconifyIcon icon="lucide:message-circle" size="14" /> {{ comment.replys }}
+                <IconifyIcon icon="lucide:message-circle" width="14" height="14" /> {{ comment.replys }}
               </span>
               <span v-if="comment.ip">
-                <IconifyIcon icon="lucide:globe" size="14" /> {{ comment.ip }}
+                <IconifyIcon icon="lucide:globe" width="14" height="14" /> {{ comment.ip }}
               </span>
             </div>
           </div>
 
           <div class="comment-actions">
             <el-dropdown @command="handleCommentAction($event, comment)">
-              <el-button text>
-                <IconifyIcon icon="lucide:more-horizontal" />
+              <el-button round text type="default" size="small">
+                <el-icon>
+                  <More />
+                </el-icon>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="approve" v-if="comment.audit_status === 'pending'">
-                    <IconifyIcon icon="lucide:check" /> {{ $t('admin.comment.actions.approve') }}
+                    <el-icon>
+                      <Check />
+                    </el-icon>
+                    {{ $t('admin.comment.actions.approve') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="reject" v-if="comment.audit_status === 'pending'">
-                    <IconifyIcon icon="lucide:x" /> {{ $t('admin.comment.actions.reject') }}
+                    <el-icon>
+                      <Close />
+                    </el-icon>
+                    {{ $t('admin.comment.actions.reject') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="show" v-if="comment.status === 'hidden'">
-                    <IconifyIcon icon="lucide:eye" /> {{ $t('admin.comment.actions.show') }}
+                    <el-icon>
+                      <View />
+                    </el-icon>
+                    {{ $t('admin.comment.actions.show') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="hide" v-if="comment.status === 'normal'">
-                    <IconifyIcon icon="lucide:eye-off" /> {{ $t('admin.comment.actions.hide') }}
+                    <el-icon>
+                      <Hide />
+                    </el-icon>
+                    {{ $t('admin.comment.actions.hide') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="ban" divided>
-                    <IconifyIcon icon="lucide:user-x" /> {{ $t('admin.comment.actions.ban') }}
+                    <el-icon>
+                      <CircleClose />
+                    </el-icon>
+                    {{ $t('admin.comment.actions.ban') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="delete">
-                    <IconifyIcon icon="lucide:trash-2" /> {{ $t('admin.comment.actions.delete') }}
+                    <el-icon>
+                      <Delete />
+                    </el-icon>
+                    {{ $t('admin.comment.actions.delete') }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -278,6 +315,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { More, Check, Close, View, Hide, CircleClose, Delete, ArrowDown } from '@element-plus/icons-vue'
 import IconifyIcon from '@/components/IconIfy.vue'
 import { useMobileDetection } from '@/composables/useMobileDetection'
 import {

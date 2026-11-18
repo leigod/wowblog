@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func
 import uvicorn
 import re
 import json
 import os
+import time
 from datetime import datetime
 
 from app.models.response import ApiResponse
@@ -17,6 +19,9 @@ from typing import List, Literal
 
 import app.models.data.navs as models
 import app.models.data.users as modelsUsers
+import app.models.data.user_blog as modelsUserBlog
+import app.models.data.articles as modelsArticles
+import app.models.data.series as models_series
 import app.models.schemas.navs as schemas
 import app.models.schemas.articles as schemasArticles
 import app.models.schemas.tags as schemasTags
@@ -40,6 +45,65 @@ from fastapi import Header
 
 
 router = APIRouter()
+
+
+async def _build_series_progress(db: AsyncSession, article) -> dict:
+    """给详情接口计算两个维度的「所属系列」进度（第几篇 / 共几篇）。
+
+    - platform：wb_articles.series_id → wb_series（有 slug/排序方向）；
+    - personal：wb_articles.blog_series_id → wb_user_series（同作者内）。
+    只统计已发布文章，按 pub_time 排序（平台系列尊重 articles_order）。
+    """
+    result = {"site": None, "blog": None}
+
+    # ---- 平台系列 ----
+    if getattr(article, "series_id", None):
+        srow = await db.execute(
+            select(models_series.BlogSeries).where(models_series.BlogSeries.id == article.series_id)
+        )
+        s = srow.scalar_one_or_none()
+        if s:
+            q = select(modelsArticles.BlogArticle.id, modelsArticles.BlogArticle.pub_time).where(
+                modelsArticles.BlogArticle.series_id == article.series_id,
+                modelsArticles.BlogArticle.status == 'published'
+            )
+            # articles_order: asc=从最早一篇开始，desc=从最新一篇开始
+            q = q.order_by(
+                modelsArticles.BlogArticle.pub_time.asc() if getattr(s, 'articles_order', 'desc') == 'asc'
+                else modelsArticles.BlogArticle.pub_time.desc()
+            )
+            rows = (await db.execute(q)).all()
+            ids = [r[0] for r in rows]
+            idx = ids.index(article.id) + 1 if article.id in ids else 1
+            result["site"] = {
+                "id": s.id, "name": s.name, "slug": s.slug,
+                "description": s.series_desc, "index": idx,
+                "total": len(ids), "source": "site",
+            }
+
+    # ---- 个人 blog 系列 ----
+    if getattr(article, "blog_series_id", None):
+        urow = await db.execute(
+            select(modelsUserBlog.UserSeries).where(
+                modelsUserBlog.UserSeries.id == article.blog_series_id
+            )
+        )
+        us = urow.scalar_one_or_none()
+        if us:
+            q = select(modelsArticles.BlogArticle.id).where(
+                modelsArticles.BlogArticle.blog_series_id == article.blog_series_id,
+                modelsArticles.BlogArticle.author == article.author,
+                modelsArticles.BlogArticle.status == 'published'
+            ).order_by(modelsArticles.BlogArticle.pub_time.asc())
+            ids = [r[0] for r in (await db.execute(q)).all()]
+            idx = ids.index(article.id) + 1 if article.id in ids else 1
+            result["blog"] = {
+                "id": us.id, "name": us.name, "slug": us.slug,
+                "description": us.description, "index": idx,
+                "total": len(ids), "source": "blog",
+            }
+
+    return result
 
 
 # API:获取所有导航
@@ -94,6 +158,17 @@ async def get_article_detail(
     # 更新文章阅读数
     statData = schemasArticles.ArticleStatDataUpdate(views=1)
     await crudArticles.update_article_statistics(db, article_id=article_data['article'].id, stat_data=statData)
+
+    # ---- 动态详情页布局所需字段 ----
+    from app.crud import user_blog as crudUserBlog
+    author_id = article_data['article'].author
+    blog_cfg = await crudUserBlog.get_blog_config(db, user_id=author_id)
+    article_data['blog_opened'] = blog_cfg is not None
+
+    progress = await _build_series_progress(db, article_data['article'])
+    article_data['series_progress'] = progress['site']
+    article_data['blog_series_progress'] = progress['blog']
+
     return success('success', article_data)
 
 
@@ -118,6 +193,26 @@ async def preview_article(
         raise HTTPException(status_code=404, detail="Article not found")
 
     return success('success', article_data)
+
+
+# 作者读取自己文章的详情（供 Creator 工作台 / Contributor 编辑页回填）
+# 与 /admin/articles/detail 返回结构一致，但不挂 Admin 专属依赖；
+# 仅允许作者本人（或 Admin）读取，含草稿/已发布任意状态。
+@router.get("/blog/articles/mydetail/{article_id}", response_model=ApiResponse[schemasArticles.BlogArticle])
+async def get_my_article_detail(
+    article_id: int,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    article_data = await crudArticles.get_article(db, article_id=article_id)
+    if article_data is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    if article_data.author != user_id:
+        # Admin 可读取任意文章（管理通道同理），其余用户只能读自己的
+        actor = await crudUsers.get_user_by_id(db, user_id)
+        if not actor or actor.role != 'Admin':
+            raise HTTPException(status_code=403, detail="只能查看自己的文章")
+    return success(data=article_data)
 
 
 # 获取首页文章列表data:{type:all,following,featured,recommend}
@@ -196,6 +291,14 @@ async def search_tags_frontend(keyword: str, db: AsyncSession = Depends(get_db))
         return success(data=[])
     tags = await crudTags.search_tag_frontend(db, keyword.strip())
     return success(data=tags)
+
+
+# 编辑推荐（首页上部）：置顶+加精优先，不足时逐级降级补位（详见 crud 注释）
+@router.get("/blog/articles/editorial", response_model=ApiResponse[List[dict]])
+async def get_editorial_articles(db: AsyncSession = Depends(get_db), limit: int = 5):
+    limit = max(1, min(limit, 10))
+    articles = await crudArticles.get_editorial_articles(db, limit=limit)
+    return success('success', articles)
 
 
 # 获取热门文章列表
@@ -620,6 +723,9 @@ async def get_articles_by_username(
     username: str,
     limit: int = 10,
     status: str = None,
+    offset: int = 0,
+    blog_cat: int | None = None,
+    blog_series: int | None = None,
     db: AsyncSession = Depends(get_db)
 ):
     # 先获取用户信息
@@ -627,10 +733,18 @@ async def get_articles_by_username(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 获取用户文章，支持状态筛选
-    articles = await crudArticles.get_articles_by_author(db, author_id=user.id, limit=limit, status=status)
+    # 获取用户文章，支持状态/blog归属筛选（offset 用于「加载更多」分页）
+    articles = await crudArticles.get_articles_by_author(
+        db, author_id=user.id, limit=limit, status=status, skip=max(0, offset),
+        blog_category_id=blog_cat, blog_series_id=blog_series
+    )
+    # 真实总数（含筛选条件），供「加载更多」判断是否还有下一页
+    total = await crudArticles.get_articles_count_by_author(
+        db, author_id=user.id, status=status,
+        blog_category_id=blog_cat, blog_series_id=blog_series
+    )
     # 返回前端期望的格式：包含 list 字段
-    return success(data={'list': articles, 'total': len(articles)})
+    return success(data={'list': articles, 'total': total})
 
 
 # 获取用户文章总数
@@ -678,6 +792,253 @@ async def get_user_articles_list(
     return success(data=articles)
 
 
+# 个人博客首页（/blog/:username）的公开配置包：blog 配置 + 导航 + 分类 + 系列 + 作者信息。
+# 无 wb_user_blogs 行 = 未开通（非 Author 或从未进过工作台），返回 blog=null 由前端引导。
+@router.get("/blog/site/{username}", response_model=ApiResponse[dict])
+async def get_blog_site(
+    username: str,
+    db: AsyncSession = Depends(get_db)
+):
+    from app.crud import user_blog as crudUserBlog
+    user = await crudUsers.get_user(db, username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    blog = await crudUserBlog.get_blog_config(db, user_id=user.id)
+    navs = await crudUserBlog.get_navs(db, user_id=user.id)
+    categories = await crudUserBlog.get_categories(db, user_id=user.id)
+    series_list = await crudUserBlog.get_series_list(db, user_id=user.id)
+
+    # 导航只下发显示中的项（status=1，按 sort 升序）
+    visible_navs = [
+        {'id': n.id, 'label': n.label, 'type': n.type, 'value': n.value}
+        for n in navs if n.status == 1
+    ]
+
+    # 社媒与个人资料同源（wb_users.social_profiles，与「个人资料/外观设置」编辑的同一份数据）：
+    # crudUsers.get_user 返回 Pydantic schema（无此字段），需直查 ORM 列
+    social_links = []
+    social_row = await db.execute(
+        select(modelsUsers.User.social_profiles).where(modelsUsers.User.id == user.id)
+    )
+    raw_social_profiles = social_row.scalar_one_or_none()
+    try:
+        raw_social = json.loads(raw_social_profiles) if raw_social_profiles else {}
+        if isinstance(raw_social, dict):
+            social_links = [
+                {'platform': k, 'url': str(v)} for k, v in raw_social.items() if v
+            ]
+    except (ValueError, TypeError):
+        social_links = []
+
+    return success(data={
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.full_name,
+            'profile_image': user.profile_image
+        },
+        'blog': {
+            'blog_name': blog.blog_name if blog else None,
+            'blog_description': blog.blog_description if blog else None,
+            'impressum': blog.impressum if blog else None,
+            'logo': blog.logo if blog else None,
+            'favicon': blog.favicon if blog else None,
+            'social_links': social_links,
+            'homepage_layout': blog.homepage_layout if blog else None,
+            'createtime': blog.createtime if blog else None,
+            'opened': blog is not None
+        },
+        'navs': visible_navs,
+        'categories': [
+            {'id': c.id, 'name': c.name, 'slug': c.slug} for c in categories
+        ],
+        'series': [
+            {'id': s.id, 'name': s.name, 'description': s.description, 'slug': s.slug}
+            for s in series_list
+        ]
+    })
+
+
+@router.get("/blog/site/{username}/series/{series_slug}", response_model=ApiResponse[dict])
+async def get_blog_series_detail(
+    username: str,
+    series_slug: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """公开：某博主的单个 blog 系列详情（按 slug）。"""
+    from app.crud import user_blog as crudUserBlog
+    user = await crudUsers.get_user(db, username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    series_list = await crudUserBlog.get_series_list(db, user_id=user.id)
+    match = next((s for s in series_list if s.slug == series_slug), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Series not found")
+    return success(data={
+        'id': match.id,
+        'name': match.name,
+        'description': match.description,
+        'slug': match.slug,
+        'username': username,
+        'full_name': user.full_name,
+        'profile_image': user.profile_image,
+    })
+
+
+@router.get("/blog/site/{username}/series/{series_slug}/articles", response_model=ApiResponse[dict])
+async def get_blog_series_articles(
+    username: str,
+    series_slug: str,
+    currentpage: int = 1,
+    pagesize: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
+    """公开：某博主 blog 系列下的已发布文章列表（按系列 slug）。"""
+    from app.crud import user_blog as crudUserBlog
+    user = await crudUsers.get_user(db, username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    series_list = await crudUserBlog.get_series_list(db, user_id=user.id)
+    match = next((s for s in series_list if s.slug == series_slug), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Series not found")
+
+    skip = (max(1, currentpage) - 1) * max(1, pagesize)
+    limit = max(1, pagesize)
+    base = (
+        select(modelsArticles.BlogArticle, modelsArticles.BlogArticleStatData.views)
+        .join(modelsArticles.BlogArticleStatData, modelsArticles.BlogArticleStatData.article_id == modelsArticles.BlogArticle.id, isouter=True)
+        .where(
+            modelsArticles.BlogArticle.author == user.id,
+            modelsArticles.BlogArticle.blog_series_id == match.id,
+            modelsArticles.BlogArticle.status == 'published'
+        )
+    )
+    total = (await db.execute(
+        select(func.count()).select_from(
+            select(modelsArticles.BlogArticle.id).where(
+                modelsArticles.BlogArticle.author == user.id,
+                modelsArticles.BlogArticle.blog_series_id == match.id,
+                modelsArticles.BlogArticle.status == 'published'
+            ).subquery()
+        )
+    )).scalar_one()
+    rows = (await db.execute(
+        base.order_by(modelsArticles.BlogArticle.pub_time.asc()).offset(skip).limit(limit)
+    )).all()
+
+    articles = []
+    for a, views in rows:
+        articles.append({
+            'id': a.id,
+            'title': a.title,
+            'slug': a.slug,
+            'cover': a.cover,
+            'pub_time': a.pub_time,
+            'summary': (a.subtitle or ''),
+            'subtitle': (a.subtitle or ''),
+            'content_len': len(a.content or ''),
+            'views': views or 0,
+        })
+    return success(data={
+        'list': articles,
+        'total': total,
+        'page': max(1, currentpage),
+        'pageSize': limit,
+        'series': {'id': match.id, 'name': match.name, 'slug': match.slug, 'description': match.description}
+    })
+
+
+# ---------- 个人博客分类列表页（/blog/:username/category/:slug）----------
+# 与上面的系列页同构：分类是用户维度（wb_user_categories），slug 由 blog_slug 工具保证同用户唯一。
+@router.get("/blog/site/{username}/category/{category_slug}", response_model=ApiResponse[dict])
+async def get_blog_category_detail(
+    username: str,
+    category_slug: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """公开：某博主的单个 blog 分类详情（按 slug）。"""
+    from app.crud import user_blog as crudUserBlog
+    user = await crudUsers.get_user(db, username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    categories = await crudUserBlog.get_categories(db, user_id=user.id)
+    match = next((c for c in categories if c.slug == category_slug), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return success(data={
+        'id': match.id,
+        'name': match.name,
+        'slug': match.slug,
+        'username': username,
+        'full_name': user.full_name,
+        'profile_image': user.profile_image,
+    })
+
+
+@router.get("/blog/site/{username}/category/{category_slug}/articles", response_model=ApiResponse[dict])
+async def get_blog_category_articles(
+    username: str,
+    category_slug: str,
+    currentpage: int = 1,
+    pagesize: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
+    """公开：某博主 blog 分类下的已发布文章列表（按分类 slug）。"""
+    from app.crud import user_blog as crudUserBlog
+    user = await crudUsers.get_user(db, username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    categories = await crudUserBlog.get_categories(db, user_id=user.id)
+    match = next((c for c in categories if c.slug == category_slug), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    skip = (max(1, currentpage) - 1) * max(1, pagesize)
+    limit = max(1, pagesize)
+    where = (
+        modelsArticles.BlogArticle.author == user.id,
+        modelsArticles.BlogArticle.blog_category_id == match.id,
+        modelsArticles.BlogArticle.status == 'published'
+    )
+    total = (await db.execute(
+        select(func.count()).select_from(
+            select(modelsArticles.BlogArticle.id).where(*where).subquery()
+        )
+    )).scalar_one()
+    rows = (await db.execute(
+        select(modelsArticles.BlogArticle, modelsArticles.BlogArticleStatData.views)
+        .join(modelsArticles.BlogArticleStatData, modelsArticles.BlogArticleStatData.article_id == modelsArticles.BlogArticle.id, isouter=True)
+        .where(*where)
+        .order_by(modelsArticles.BlogArticle.blog_top.desc(),
+                  modelsArticles.BlogArticle.blog_sort.desc(),
+                  modelsArticles.BlogArticle.pub_time.desc())
+        .offset(skip).limit(limit)
+    )).all()
+
+    articles = []
+    for a, views in rows:
+        articles.append({
+            'id': a.id,
+            'title': a.title,
+            'slug': a.slug,
+            'cover': a.cover,
+            'pub_time': a.pub_time,
+            'summary': (a.subtitle or ''),
+            'subtitle': (a.subtitle or ''),
+            'content_len': len(a.content or ''),
+            'views': views or 0,
+        })
+    return success(data={
+        'list': articles,
+        'total': total,
+        'page': max(1, currentpage),
+        'pageSize': limit,
+        'category': {'id': match.id, 'name': match.name, 'slug': match.slug}
+    })
+
+
 # 创建文章（供Author和Contributor使用）
 @router.post("/blog/articles/create", response_model=ApiResponse[schemasArticles.BlogArticle])
 async def create_article_public(
@@ -709,19 +1070,29 @@ async def create_article_public(
     if user_role == 'Contributor' and article.status != 'draft':
         raise HTTPException(status_code=403, detail="Contributors can only create draft articles")
 
+    # 站点文章审核开启时，Author 提交一律固定草稿（服务端兜底，前端仅隐藏选择）
+    from app.crud import siteconfig as crudSiteConfigLocal
+    site_cfg = await crudSiteConfigLocal.get_site_config(db)
+    review_enabled = getattr(site_cfg, 'article_review_enabled', 1) if site_cfg else 1
+    if review_enabled == 1 and user_role == 'Author' and article.status != 'draft':
+        article.status = 'draft'
+
     # 处理标签
     tag_names = article.tags.split(",") if article.tags else None
-    if article.co_authors == "" or article.co_authors == []:
+    # co_authors 规范化：空值（""/[]/None）归 None；schema 只收 str，
+    # 字符串直接透传——此前对 str 逐字符迭代会把 "8,9" 变成 "8,,,9"
+    if not article.co_authors:
         article.co_authors = None
-    else:
-        article.co_authors = ",".join(str(id) for id in article.co_authors)
     if article.series_id == "":
         article.series_id = None
     elif type(article.series_id) == str:
         article.series_id = int(article.series_id)
 
-    # 处理pub_time：如果是毫秒级时间戳则转换为秒级
-    if hasattr(article, 'pub_time') and article.pub_time and article.pub_time > 10**12:
+    # 处理pub_time：未传时兜底当前时间（crud 按 exclude_unset 落库，
+    # DB 列 NOT NULL，缺省会 1048）；毫秒级时间戳转换为秒级
+    if not getattr(article, 'pub_time', None):
+        article.pub_time = int(time.time())
+    elif article.pub_time > 10**12:
         article.pub_time = article.pub_time // 1000
 
     # 生成slug
@@ -731,13 +1102,17 @@ async def create_article_public(
             # 包含中文，使用 pypinyin 转换
             article.slug = "_".join(pypinyin.lazy_pinyin(article.title)).lower()
         else:
-            # 纯英文标题：空格替换为下划线，逗号替换为短横线
-            article.slug = article.title.replace(" ", "_").replace(",", "-")
+            # 纯英文标题：空格替换为下划线，逗号替换为短横线，并转换为小写
+            # （与 internal/articles.py 保持一致；此前漏掉 .lower() 导致英文标题 slug 带大写）
+            article.slug = article.title.replace(" ", "_").replace(",", "-").lower()
         # 移除所有非字母、数字、下划线、短横线的字符
         article.slug = re.sub(r"[^a-zA-Z0-9_-]", "", article.slug)
+    # 服务端兜底：一律小写 + 长度截断（与前端校验口径统一）
+    # slug 列为 varchar(100)，唯一性后缀 "_" + 6 位随机共 7 字符，故主体截断到 93
+    article.slug = article.slug.lower()[:93]
 
-    # 文章slug具有唯一性，查询是否存在相同slug的文章
-    if await crudArticles.check_article_slug_unique(db, slug=article.slug):
+    # 文章slug具有唯一性：check 返回 True=唯一、False=已存在，故仅在冲突时加随机后缀
+    if not await crudArticles.check_article_slug_unique(db, slug=article.slug):
         article.slug += "_" + "".join(random.sample(string.ascii_lowercase + string.digits, 6))
 
     # 处理标签ID
@@ -856,6 +1231,117 @@ async def create_article_public(
             api_logger.exception("发送文章审核通知邮件失败")
 
     return success(data=db_article)
+
+
+# 更新文章（供 Author/Contributor 编辑自己的文章；此前前端仅指向 /admin/articles/update
+# 的 Admin 专属接口，作者保存一直被挂载层拦截——本路由补齐前台编辑链路）
+@router.post("/blog/articles/update/{article_id}", response_model=ApiResponse[schemasArticles.BlogArticle])
+async def update_article_public(
+    article_id: int,
+    article: schemasArticles.BlogArticleUpdate,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    old_article = await crudArticles.get_article(db, article_id=article_id)
+    if old_article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    # 只允许作者本人编辑（Admin 走 /admin/articles/update 管理通道）
+    if old_article.author != user_id:
+        raise HTTPException(status_code=403, detail="只能编辑自己的文章")
+
+    # 站点文章审核开启时，作者（Author/Contributor）仅当「正文内容真正被修改」才强制回到草稿
+    # 重新进入审核；只改分类/标签/SEO 等非正文字段时保持文章当前状态，不触发重审。
+    # Admin 走 /admin/articles/update 管理通道，不经过此处，不受此约束。
+    from app.crud import siteconfig as crudSiteConfigReview
+    from app.crud import users as crudUsersReview
+    review_cfg = await crudSiteConfigReview.get_site_config(db)
+    review_enabled = getattr(review_cfg, 'article_review_enabled', 1) if review_cfg else 1
+    if review_enabled == 1:
+        editor_user = await crudUsersReview.get_user_by_id(db, user_id)
+        if editor_user and editor_user.role in ('Author', 'Contributor'):
+            # 规范化后只比对「实质性文本」，避免把格式/空格调整误判成正文修改（与前端口径一致）：
+            # 去掉目录注入的标题 id → 去掉 HTML 标签 → 解码 &nbsp; 等空白实体 → 去掉所有空白字符。
+            def _normalize(html: str) -> str:
+                text = re.sub(r'\s+id=["\'][^"\']*["\']', '', html or '')
+                text = re.sub(r'<[^>]*>', '', text)
+                text = re.sub(r'&nbsp;|&#160;|&#xa0;', '', text, flags=re.I)
+                return re.sub(r'\s+', '', text).strip()
+
+            if _normalize(article.content) != _normalize(old_article.content):
+                article.status = 'draft'
+
+    # 校验后直接委托 internal 的更新处理器（tags/slug/co_authors/pub_time 处理一致，零重复）
+    from app.internal.articles import update_article as admin_update_article
+    return await admin_update_article(article_id=article_id, article=article, user_id=user_id, db=db)
+
+
+# 删除自己的文章（前台通道；与 update 同理——/admin 通道仅 Admin 可用）
+@router.delete("/blog/articles/delete/{article_id}", response_model=ApiResponse[schemasArticles.BlogArticle])
+async def delete_article_public(
+    article_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    old_article = await crudArticles.get_article(db, article_id=article_id)
+    if old_article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    if old_article.author != user_id:
+        raise HTTPException(status_code=403, detail="只能删除自己的文章")
+    from app.internal.articles import delete_article as admin_delete_article
+    return await admin_delete_article(article_id=article_id, db=db)
+
+
+# 更新自己文章的状态（发布/取消发布；前台通道）
+@router.post("/blog/articles/update_status/{article_id}", response_model=ApiResponse[schemasArticles.BlogArticle])
+async def update_article_status_public(
+    article_id: int,
+    status_data: schemasArticles.BlogArticleUpdateStatus,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    old_article = await crudArticles.get_article(db, article_id=article_id)
+    if old_article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    if old_article.author != user_id:
+        raise HTTPException(status_code=403, detail="只能操作自己的文章")
+    # 站点文章审核开启时，作者不得自行发布（列表页的「发布」按钮走本接口）；
+    # 取消发布（published→draft）不受限
+    if status_data.status == 'published' and old_article.status != 'published':
+        from app.crud import siteconfig as crudSiteConfigStatus
+        from app.crud import users as crudUsersStatus
+        review_cfg = await crudSiteConfigStatus.get_site_config(db)
+        review_enabled = getattr(review_cfg, 'article_review_enabled', 1) if review_cfg else 1
+        if review_enabled == 1:
+            actor = await crudUsersStatus.get_user_by_id(db, user_id)
+            # Author 与 Contributor 都受审核约束，均不得自行发布；
+            # Admin 不会走本前台通道（其管理发布走 /admin），故无需额外放行判断
+            if actor and actor.role in ('Author', 'Contributor'):
+                raise HTTPException(status_code=403, detail="文章审核已开启，发布需等待审核放行")
+    from app.internal.articles import update_article_status as admin_update_status
+    return await admin_update_status(article_id=article_id, status_data=status_data, db=db)
+
+
+# 更新自己文章的个人 blog 置顶/排序（仅影响 /blog/:username 展示顺序，前台通道）
+@router.post("/blog/articles/update_blog_meta/{article_id}", response_model=ApiResponse[schemasArticles.BlogArticle])
+async def update_article_blog_meta(
+    article_id: int,
+    meta: schemasArticles.BlogArticleUpdateBlogMeta,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    old_article = await crudArticles.get_article(db, article_id=article_id)
+    if old_article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    if old_article.author != user_id:
+        raise HTTPException(status_code=403, detail="只能操作自己的文章")
+    update_data = meta.model_dump(exclude_unset=True)
+    if not update_data:
+        return error(msg='没有需要更新的字段')
+    for key, value in update_data.items():
+        setattr(old_article, key, value)
+    await db.commit()
+    await db.refresh(old_article)
+    return success(data=old_article)
 
 
 ###########
@@ -1243,6 +1729,36 @@ async def get_user_activity(
 
 # ==================== 用户隐私设置 ====================
 
+@router.get("/blog/users/privacy", response_model=ApiResponse[dict])
+async def get_user_privacy(
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取当前用户的隐私设置
+
+    返回：
+    - privacy_show_bookmarks: 是否展示收藏的文章（1=是，0=否）
+    - privacy_show_likes: 是否展示点赞的文章（1=是，0=否）
+    - privacy_show_comments: 是否展示评论活动（1=是，0=否）
+    - privacy_show_views: 是否展示浏览记录（1=是，0=否）
+    """
+    from app.models.data.users import User
+    from sqlalchemy import select
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        return error(msg='用户不存在')
+
+    return success(data={
+        'privacy_show_bookmarks': user.privacy_show_bookmarks,
+        'privacy_show_likes': user.privacy_show_likes,
+        'privacy_show_comments': user.privacy_show_comments,
+        'privacy_show_views': user.privacy_show_views
+    })
+
+
 @router.put("/blog/users/privacy", response_model=ApiResponse[dict])
 async def update_user_privacy(
     privacy_data: schemasUsers.UserPrivacyUpdate,
@@ -1322,6 +1838,32 @@ async def get_top_commenters(
 
     commenter_list = await crudComments.get_top_commenters(db, limit=limit, days=days)
     return success(data=commenter_list)
+
+
+@router.get("/blog/users/{username}/comments", response_model=ApiResponse[dict])
+async def get_user_comments_api(
+    username: str,
+    limit: int = 10,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取指定用户发表的评论列表（个人资料页「评论」Tab）
+
+    仅返回顶级评论（type=reply）、状态正常、审核通过，且所属文章已发布的记录。
+    返回: { list: [...], total: n }
+    """
+    limit = min(max(1, limit), 50)
+    offset = max(0, offset)
+
+    user = await crudUsers.get_user(db, username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    items, total = await crudComments.get_user_comments(
+        db, user_id=user.id, limit=limit, offset=offset
+    )
+    return success(data={'list': items, 'total': total})
 
 # 注：原文件此处有一段与上方完全重复的 privacy + get_top_commenters 路由注册（复制粘贴遗留），
 # 导致 OpenAPI 重复 operation ID 警告，已删除。

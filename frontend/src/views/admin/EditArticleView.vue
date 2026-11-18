@@ -55,21 +55,21 @@
       <!-- 标题和副标题区域 -->
       <div class="article-title-area">
         <textarea
+          ref="titleInputRef"
           maxlength="150"
           v-model="articleTitle"
           placeholder="Article Title..."
           class="article-title-input"
           rows="1"
-          style="height: 60px !important"
         ></textarea>
       </div>
       <div v-if="showSubtitle" class="subtitle-container">
         <textarea
+          ref="subtitleInputRef"
           v-model="articleSubtitle"
           placeholder="Article Subtitle..."
           class="article-subtitle-input"
           maxlength="150"
-          style="height: 53px !important"
         ></textarea>
         <el-button :icon="Close" class="delete-subtitle-btn" @click="toggleSubtitle"></el-button>
       </div>
@@ -108,7 +108,9 @@
           label-position="top"
           size="large"
         >
+          <!-- 平台分类/系列（非 creator 模式；creator 下由审核者定，不选） -->
           <el-form-item
+            v-if="!isCreatorMode"
             :label="t('admin.article.publishform.category')"
             class="form-label"
             prop="category"
@@ -128,9 +130,9 @@
             />
           </el-form-item>
           <el-form-item
+            v-if="!isCreatorMode && seriesList.length > 0"
             :label="t('admin.article.publishform.series')"
             class="form-label"
-            v-if="seriesList.length > 0"
           >
             <el-select v-model="publishForm.series" placeholder="请选择所属系列">
               <el-option
@@ -139,6 +141,17 @@
                 :label="item.name"
                 :value="item.id"
               />
+            </el-select>
+          </el-form-item>
+          <!-- Blog 分类/系列（creator 模式；非必填，归属作者自己的 blog） -->
+          <el-form-item v-if="isCreatorMode" :label="t('article_editor.blog_category')" class="form-label">
+            <el-select v-model="publishForm.blogCategory" :placeholder="t('article_editor.blog_category_optional')" clearable>
+              <el-option v-for="item in blogCategories" :key="item.id" :label="item.name" :value="String(item.id)" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="isCreatorMode" :label="t('article_editor.blog_series')" class="form-label">
+            <el-select v-model="publishForm.blogSeries" :placeholder="t('article_editor.blog_series_optional')" clearable>
+              <el-option v-for="item in blogSeriesList" :key="item.id" :label="item.name" :value="String(item.id)" />
             </el-select>
           </el-form-item>
           <el-form-item label="Author" class="form-label" prop="author">
@@ -401,20 +414,40 @@
             </template>
           </el-form-item>
           <el-form-item :label="$t('admin.article.publishform.status')" class="form-label">
-            <el-radio-group v-model="publishForm.status">
-              <el-radio label="draft" value="draft">{{
-                $t('admin.article.publishform.status_draft')
-              }}</el-radio>
-              <el-radio label="published" value="published">{{
-                $t('admin.article.publishform.status_published')
-              }}</el-radio>
-              <el-radio label="scheduled" value="scheduled">{{
-                $t('admin.article.publishform.status_scheduled')
-              }}</el-radio>
-            </el-radio-group>
+            <!-- 作者通道且站点审核开启：显示文章真实状态（发布由审核者放行，此处不可自行改状态）；
+                 仅当正文被修改时提交才会重新进入审核流程 -->
+            <template v-if="isReviewBoundAuthor && reviewEnabled">
+              <el-radio-group :model-value="publishForm.status" disabled>
+                <el-radio label="draft" value="draft">{{
+                  $t('admin.article.publishform.status_draft')
+                }}</el-radio>
+                <el-radio label="published" value="published">{{
+                  $t('admin.article.publishform.status_published')
+                }}</el-radio>
+                <el-radio label="scheduled" value="scheduled">{{
+                  $t('admin.article.publishform.status_scheduled')
+                }}</el-radio>
+              </el-radio-group>
+              <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+                {{ $t('article_editor.review_pending_hint') }}
+              </div>
+            </template>
+            <template v-else>
+              <el-radio-group v-model="publishForm.status">
+                <el-radio label="draft" value="draft">{{
+                  $t('admin.article.publishform.status_draft')
+                }}</el-radio>
+                <el-radio label="published" value="published">{{
+                  $t('admin.article.publishform.status_published')
+                }}</el-radio>
+                <el-radio label="scheduled" value="scheduled">{{
+                  $t('admin.article.publishform.status_scheduled')
+                }}</el-radio>
+              </el-radio-group>
+            </template>
           </el-form-item>
           <el-form-item
-            v-if="publishForm.status === 'scheduled'"
+            v-if="publishForm.status === 'scheduled' && !(isReviewBoundAuthor && reviewEnabled)"
             :label="$t('admin.article.publishform.publish_time')"
             class="form-label"
           >
@@ -605,7 +638,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -621,6 +654,7 @@ import {
   ElRadio,
   ElDatePicker,
   ElMessage,
+  ElMessageBox,
   ElTreeSelect,
   ElInputTag,
   ElProgress,
@@ -638,16 +672,22 @@ import {
 } from '@element-plus/icons-vue'
 //import TiptapEditor from '@/components/TiptapEditor.vue'
 import SlashEditor from '@/components/SlashEditor.vue'
+import { useAppStore } from '@/stores/app'
 import { getManageCategoryList } from '@/api/services/categories'
 import { uploadFile } from '@/api/services/common'
 import { getManageSeriesList } from '@/api/services/series'
 import { getUserMe } from '@/api/services/user'
 import { searchAuthors, searchCoAuthors } from '@/api/services/member'
 import { searchTagsFrontend } from '@/api/services/tags'
-import { updateArticle, getArticleDetail } from '@/api/services/articles'
+import { updateArticle, updateMyArticle, getArticleDetail, getMyArticleDetail } from '@/api/services/articles'
+import { useAutoTextarea } from '@/composables/useAutoTextarea'
+// Creator 模式（/creator/articles/edit/*）：Author 编辑时管理自己 blog 的分类/系列，
+// 平台分类（审核者定）隐藏。Admin/Contributor 路径行为不变。
+import { getUserCategories, getUserSeriesList } from '@/api/services/creator'
 
 const route = useRoute()
 const { t } = useI18n()
+const appStore = useAppStore()
 // 封面图片相关
 const coverImageUrl = ref('')
 const coverUploadRef = ref<InstanceType<typeof ElUpload>>()
@@ -659,12 +699,36 @@ const articleTitle = ref('')
 const articleSubtitle = ref('')
 const showSubtitle = ref(false)
 const showSubtitleBtn = ref(true)
+// 长标题自动增高（含接口回填后的重算），去掉原写死的 60px/53px 内联高度
+const titleInputRef = ref<HTMLTextAreaElement | null>(null)
+const subtitleInputRef = ref<HTMLTextAreaElement | null>(null)
+useAutoTextarea(articleTitle, titleInputRef)
+useAutoTextarea(articleSubtitle, subtitleInputRef)
 // 目录相关
 const showArticleTOC = ref(false)
 const tableOfContents = ref('')
 
 // 文章内容
 const articleContent = ref('')
+// 加载文章后的正文基线，用于判断正文是否被真正修改（决定审核重提）
+const contentBaseline = ref('')
+
+// 规范化正文后再比对，只判断「实质性文本」是否变化，避免把格式/空格调整误判成正文修改。
+// 步骤：去掉目录注入的 id 属性 → 去掉 HTML 标签 → 解码 &nbsp; 等空白实体 → 去掉所有空白字符。
+// 中文文本里空格无语义，英文场景即便漏判也只是「要不要重审」的判断（真实正文照常保存），代价极低。
+// 仅用于比较，不改动真实正文。
+const normalizeContentForCompare = (html: string): string =>
+  (html || '')
+    .replace(/\sid=["'][^"']*["']/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;|&#160;|&#xa0;/gi, '')
+    .replace(/\s+/g, '')
+    .trim()
+
+// 正文是否已被修改
+const isContentChanged = computed(
+  () => normalizeContentForCompare(articleContent.value) !== normalizeContentForCompare(contentBaseline.value)
+)
 
 // 发布抽屉相关
 const publishDrawerVisible = ref(false)
@@ -815,6 +879,20 @@ const handlePreview = () => {
         <title>Article Preview</title>
         <style>
           body { max-width: 1024px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif; }
+          .preview-notice {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 12px 16px;
+            background-color: #fdf6ec;
+            border: 1px solid #faecd8;
+            border-left: 4px solid #e6a23c;
+            border-radius: 6px;
+            color: #b88230;
+            font-size: 0.9rem;
+            line-height: 1.5;
+          }
           .cover-image { width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px; }
           .article-title { font-size: 2rem; font-weight: bold; margin-bottom: 10px; }
           .article-subtitle { font-size: 1.2rem; color: #666; margin-bottom: 30px; }
@@ -864,6 +942,7 @@ const handlePreview = () => {
         </style>
       </head>
       <body>
+        <div class="preview-notice">ℹ️ ${t('article_editor.preview_notice')}</div>
         ${coverImage}
         <h1 class="article-title">${articleTitle.value || 'Untitled Article'}</h1>
         ${subtitle}
@@ -1033,6 +1112,8 @@ const publishFormRef = ref<FormInstance>()
 const publishForm = reactive({
   category: '',
   series: '',
+  blogCategory: '',
+  blogSeries: '',
   author: '',
   coAuthors: [] as string[],
   tags: [] as string[],
@@ -1045,13 +1126,38 @@ const publishForm = reactive({
   seoTitle: '',
   seoDescription: ''
 })
-// 发布表单验证规则
-const publishFormRules = {
-  category: [{ required: true, message: '请选择分类', trigger: 'blur' }],
-  // series: [{ required: true, message: '请选择系列', trigger: 'blur' }],
+
+// Creator 模式：/creator/articles/* 下的 Author 编辑流程
+const isCreatorMode = computed(() => route.path.startsWith('/creator'))
+// 站点文章审核开关：开启时作者编辑强制转草稿重审，隐藏发布状态选择
+const reviewEnabled = computed(() => appStore.article_review_enabled)
+// Admin 走 /admin 管理通道；Author/Contributor 走前台通道（作者本人校验）
+const isAdminUser = computed(() => appStore.userRole === 'Admin')
+// 是否受审核约束的作者通道（Author 的 /creator/* 与 Contributor 的 /my-articles/*）。
+// 注意不能只用 isCreatorMode——Contributor 路径不以 /creator 开头，但同样受审核约束。
+const isReviewBoundAuthor = computed(
+  () => !isAdminUser.value && (isCreatorMode.value || route.path.startsWith('/my-articles'))
+)
+// Author 自己 blog 的分类/系列（creator 模式下显示，均非必填）
+const blogCategories = ref<{ id: number; name: string }[]>([])
+const blogSeriesList = ref<{ id: number; name: string }[]>([])
+
+// 加载当前用户 blog 的分类与系列（creator 模式）
+const loadBlogTaxonomies = async () => {
+  try {
+    const [catRes, seriesRes] = await Promise.all([getUserCategories(), getUserSeriesList()])
+    if (catRes.code === 1 && catRes.data) blogCategories.value = catRes.data
+    if (seriesRes.code === 1 && seriesRes.data) blogSeriesList.value = seriesRes.data
+  } catch (error) {
+    console.error('加载 Blog 分类/系列失败:', error)
+  }
+}
+
+// 发布表单验证规则（平台分类非必填——Author 的 blog 分类与平台分类是两套维度；
+// slug 只允许小写，与后端 create_article_public 的小写化口径统一）
+const publishFormRules = computed(() => ({
+  category: [],
   author: [{ required: true, message: '请选择作者', trigger: 'blur' }],
-  // coAuthors: [{ required: true, message: '请选择协作者', trigger: 'blur' }],
-  // tags: [{ required: true, message: '请选择标签', trigger: 'blur' }],
   slug: [
     // 非必填项，只在有值时验证
     {
@@ -1059,7 +1165,7 @@ const publishFormRules = {
         // 如果值为空，直接通过验证
         if (!value || value.trim() === '') {
           callback()
-        } else if (!/^[a-z0-9-_]+$/.test(value)) {
+        } else if (!/^[a-z0-9_-]+$/.test(value)) {
           callback(new Error('slug只能包含小写字母、数字、-和_'))
         } else {
           callback()
@@ -1068,7 +1174,7 @@ const publishFormRules = {
       trigger: 'blur'
     }
   ]
-}
+}))
 // 处理文章发布
 const handlePublishArticle = async () => {
   if (!publishFormRef.value) {
@@ -1078,6 +1184,29 @@ const handlePublishArticle = async () => {
     // 先进行表单验证
     await publishFormRef.value.validate()
 
+    // 审核开启 + 受约束作者通道：仅当正文真正被修改时才重新进入审核流程。
+    // 只改分类/标签/SEO 等非正文字段时保持文章当前状态，不触发重审。
+    const needReviewFlow = isReviewBoundAuthor.value && reviewEnabled.value
+    let submitStatus = publishForm.status
+    if (needReviewFlow && isContentChanged.value) {
+      try {
+        await ElMessageBox.confirm(
+          t('article_editor.review_content_changed_confirm'),
+          t('article_editor.review_confirm_title'),
+          {
+            confirmButtonText: t('article_editor.review_confirm_ok'),
+            cancelButtonText: t('article_editor.review_confirm_cancel'),
+            type: 'warning'
+          }
+        )
+        // 确认：正文改动需重新审核，状态转为草稿
+        submitStatus = 'draft'
+      } catch {
+        // 取消：不提交，保留在编辑页
+        return
+      }
+    }
+
     if (articleTitle.value.trim() !== 'Untitled' && publishForm.slug === 'Untitled') {
       publishForm.slug = ''
     }
@@ -1086,11 +1215,24 @@ const handlePublishArticle = async () => {
       subtitle: articleSubtitle.value,
       content: articleContent.value,
       cover: coverImageUrl.value,
-      category_id: publishForm.category,
-      series_id: publishForm.series ? Number(publishForm.series) : null,
+      // 平台分类非必填：creator 模式强制留空（审核时定）；admin 模式不选时传 null
+      // （后端 category_id 为 int|None，空字符串会触发 422）
+      category_id: isCreatorMode.value
+        ? null
+        : (publishForm.category ? Number(publishForm.category) : null),
+      series_id: isCreatorMode.value ? null : (publishForm.series ? Number(publishForm.series) : null),
+      // 个人 blog 分类/系列只在 creator 通道维护：仅在 creator 模式下提交这两个字段。
+      // Admin 后台编辑时若显式传 null，后端 exclude_unset 会将其清空，抹掉作者已选的 blog 归属。
+      ...(isCreatorMode.value
+        ? {
+            blog_category_id: publishForm.blogCategory ? Number(publishForm.blogCategory) : null,
+            blog_series_id: publishForm.blogSeries ? Number(publishForm.blogSeries) : null
+          }
+        : {}),
       co_authors: publishForm.coAuthors ? publishForm.coAuthors.join(',') : null,
       tags: publishForm.tags ? publishForm.tags.join(',') : null,
-      status: publishForm.status,
+      // 审核流程下仅正文变更才转草稿；否则保持文章当前状态
+      status: submitStatus,
       pub_time: publishForm.publishDate ? publishForm.publishDate.getTime() : null,
       og_image: publishForm.customOGImage,
       disable_comments: publishForm.disableComments,
@@ -1105,7 +1247,12 @@ const handlePublishArticle = async () => {
       articleData.author = publishForm.author
     }
 
-    await updateArticle(route.params.id as string, articleData)
+    // 按身份分流：Admin 走管理通道；Author（creator 模式）与 Contributor
+    // 走前台通道 /blog/articles/update（作者本人校验，此前仅 admin 通道导致作者保存被拦）
+    const updateCall = isAdminUser.value
+      ? updateArticle(route.params.id as string, articleData)
+      : updateMyArticle(route.params.id as string, articleData)
+    await updateCall
       .then((res: any) => {
         if (res.code === 1) {
           ElMessage.success('Article published successfully')
@@ -1122,11 +1269,18 @@ const handlePublishArticle = async () => {
 
 // 生命周期钩子
 onMounted(() => {
-  // 加载父分类数据
-  loadParentCategories()
-  loadSeriesData()
+  // 平台分类/系列是 admin 维度的字段，作者通道（Author/Contributor）用不到且接口仅 Admin 可访问，
+  // 无条件调用会让作者收到 403，故仅 Admin 加载
+  if (isAdminUser.value) {
+    loadParentCategories()
+    loadSeriesData()
+  }
   loadUserInfo()
   loadArticleDetail(route.params.id as string)
+  // creator 模式：加载 Author 自己 blog 的分类/系列
+  if (isCreatorMode.value) {
+    loadBlogTaxonomies()
+  }
 })
 
 // 路由参数变化时加载文章详情
@@ -1137,9 +1291,11 @@ onBeforeRouteUpdate((to, from) => {
 })
 
 // 加载文章详情
+// Admin 走管理通道 /admin/articles/detail；Author/Contributor 走前台通道
+// /blog/articles/mydetail（后端校验只能读自己的文章），避免作者被 Admin 专属依赖拦截
 const loadArticleDetail = async (id: string) => {
   try {
-    const res = await getArticleDetail(id)
+    const res = isAdminUser.value ? await getArticleDetail(id) : await getMyArticleDetail(id)
     if (res.code === 1) {
       // 填充表单数据
       articleTitle.value = res.data.title
@@ -1149,6 +1305,9 @@ const loadArticleDetail = async (id: string) => {
       articleContent.value = res.data.content
       publishForm.category = res.data.category_id ? res.data.category_id.toString() : ''
       publishForm.series = res.data.series_id?.toString() || null
+      // creator 模式：回填 Blog 分类/系列归属
+      publishForm.blogCategory = res.data.blog_category_id ? res.data.blog_category_id.toString() : ''
+      publishForm.blogSeries = res.data.blog_series_id ? res.data.blog_series_id.toString() : ''
       publishForm.author = res.data.author
       originalAuthorId.value = res.data.author // 保存原始作者 ID
       publishForm.coAuthors = res.data.co_authors
@@ -1173,6 +1332,8 @@ const loadArticleDetail = async (id: string) => {
         showArticleTOC.value = true
         generateTableOfContents()
       }
+      // 记录正文基线（在所有加载期正文处理完成后），用于判断是否真正改动正文
+      contentBaseline.value = articleContent.value
       // 从文章详情中获取作者信息用于显示
       if (res.data.author_full_name || res.data.author_username) {
         authorInfo.value = {
@@ -1595,6 +1756,15 @@ const handleSelectTag = (tag: string, input: string) => {
 
 .article-title-area {
   margin-bottom: 20px;
+}
+
+/* 编辑器沉浸式输入：去掉聚焦时的蓝色外框（同 CreateArticleView 的说明），
+   仅作用于本页标题/副标题/正文，不影响全站键盘焦点可见性 */
+.article-title-input:focus-visible,
+.article-subtitle-input:focus-visible,
+.editor-container :deep(.tiptap.ProseMirror:focus-visible) {
+  outline: none;
+  outline-offset: 0;
 }
 
 .article-title-input {

@@ -1,114 +1,106 @@
 <template>
   <div class="search-result-container">
-    <!-- 顶部搜索栏 -->
+    <!-- 顶部搜索栏：吸顶 + 表面色，输入框收回 8px / 细描边（原为 24px 胶囊 + Google 阴影） -->
     <div class="search-header">
       <div class="search-header-content">
-        <div class="search-bar-wrapper">
-          <div class="search-bar">
-            <el-input
-              v-model="searchKeyword"
-              class="search-input"
-              :placeholder="t('search.placeholder')"
-              clearable
-              @keyup.enter="handleSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-button type="primary" class="search-btn" @click="handleSearch">
-              {{ t('search.button') }}
-            </el-button>
-          </div>
+        <div class="search-bar">
+          <el-input
+            v-model="searchKeyword"
+            class="search-input"
+            :placeholder="t('search.placeholder')"
+            clearable
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-button type="primary" class="search-btn" @click="handleSearch">
+            {{ t('search.button') }}
+          </el-button>
         </div>
       </div>
     </div>
 
-    <!-- 搜索统计信息 -->
-    <div v-if="searchKeyword && !loading" class="search-stats">
-      <span v-html="t('search.results_found', { total: total })"></span>
-      <span class="search-time" v-html="t('search.results_time', { time: Math.floor(Math.random() * 50) + 20 })"></span>
-    </div>
+    <div class="search-body">
+      <!-- 搜索统计信息 -->
+      <div v-if="searchKeyword && !loading" class="search-stats">
+        <span v-html="t('search.results_found', { total: total })"></span>
+        <span class="search-time" v-html="t('search.results_time', { time: Math.floor(Math.random() * 50) + 20 })"></span>
+      </div>
 
-    <!-- 搜索结果列表 -->
-    <div class="search-content-wrapper">
+      <!-- 搜索结果列表：Google 式扁平排版 —— 元信息行在上、大标题、摘要，无卡片描边 -->
       <div v-loading="loading" class="search-content">
-      <template v-if="!loading && searchResults.length > 0">
-        <div
-          v-for="article in searchResults"
-          :key="article.id"
-          class="search-result-item"
-        >
-          <!-- URL链接 -->
-          <div class="result-url">
-            <a :href="`/article/${article.slug}`" @click.prevent="navigateToArticle(article.slug)">
-              {{ siteUrl }}/article/{{ article.slug }}
-            </a>
+        <template v-if="!loading && searchResults.length > 0">
+          <div
+            v-for="article in searchResults"
+            :key="article.id"
+            class="search-result-item"
+            @click="navigateToArticle(article.slug)"
+          >
+            <!-- 站点行：作者 · 日期 · 阅读数 -->
+            <div class="result-meta">
+              <span class="meta-author">
+                <el-avatar :size="22" :src="article.author_profile_image">
+                  {{ article.author_full_name?.charAt(0) || '?' }}
+                </el-avatar>
+                {{ article.author_full_name }}
+              </span>
+              <span class="meta-dot">·</span>
+              <span class="meta-info">{{ formatDate(article.pub_time || article.createtime) }}</span>
+              <template v-if="article.reads">
+                <span class="meta-dot">·</span>
+                <span class="meta-views">{{ t('search.reads', { reads: article.reads }) }}</span>
+              </template>
+            </div>
+            <!-- 标题 -->
+            <h3 class="result-title">
+              <a :href="`/article/${article.slug}`" @click.prevent="navigateToArticle(article.slug)"
+                v-html="highlightKeyword(article.title)">
+              </a>
+            </h3>
+            <!-- 摘要 -->
+            <p class="result-excerpt" v-html="highlightKeyword(getExcerpt(article.content))"></p>
           </div>
-          <!-- 标题 -->
-          <h3 class="result-title">
-            <a :href="`/article/${article.slug}`" @click.prevent="navigateToArticle(article.slug)" v-html="highlightKeyword(article.title)">
-            </a>
-          </h3>
-          <!-- 摘要 -->
-          <p class="result-excerpt" v-html="highlightKeyword(getExcerpt(article.content))">
-          </p>
-          <!-- 元信息 -->
-          <div class="result-meta">
-            <span class="meta-info">
-              {{ formatDate(article.pub_time || article.createtime) }} -
-            </span>
-            <span class="meta-author">
-              <el-avatar :size="20" :src="article.author_profile_image">
-                {{ article.author_full_name?.charAt(0) || '?' }}
-              </el-avatar>
-              {{ article.author_full_name }}
-            </span>
-              <span class="meta-views" v-if="article.reads">
-              - {{ t('search.reads', { reads: article.reads }) }}
-            </span>
+        </template>
+
+        <!-- 无结果 -->
+        <div v-else-if="!loading && searchKeyword && searchResults.length === 0" class="no-results">
+          <p class="no-results-text" v-html="t('search.no_results', { keyword: searchKeyword })"></p>
+          <p class="no-results-suggestion">{{ t('search.suggestions_title') }}</p>
+          <ul class="suggestions">
+            <li>{{ t('search.suggestion_check_input') }}</li>
+            <li>{{ t('search.suggestion_try_other') }}</li>
+            <li>{{ t('search.suggestion_try_general') }}</li>
+          </ul>
+        </div>
+
+        <!-- 初始状态 -->
+        <div v-else-if="!loading && !searchKeyword" class="initial-state">
+          <div class="search-icon">
+            <el-icon :size="56"><Search /></el-icon>
           </div>
+          <p class="initial-text">{{ t('search.initial_state') }}</p>
         </div>
-      </template>
-
-      <!-- 无结果 -->
-      <div v-else-if="!loading && searchKeyword && searchResults.length === 0" class="no-results">
-        <p class="no-results-text" v-html="t('search.no_results', { keyword: searchKeyword })">
-        </p>
-        <p class="no-results-suggestion">{{ t('search.suggestions_title') }}</p>
-        <ul class="suggestions">
-          <li>{{ t('search.suggestion_check_input') }}</li>
-          <li>{{ t('search.suggestion_try_other') }}</li>
-          <li>{{ t('search.suggestion_try_general') }}</li>
-        </ul>
       </div>
 
-      <!-- 初始状态 -->
-      <div v-else-if="!loading && !searchKeyword" class="initial-state">
-        <div class="search-icon">
-          <el-icon :size="80"><Search /></el-icon>
-        </div>
-        <p class="initial-text">{{ t('search.initial_state') }}</p>
+      <!-- 分页 -->
+      <div v-if="total > pageSize" class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="currentPage"
+          :page-size="pageSize"
+          :total="total"
+          layout="prev, pager, next"
+          @current-change="handlePageChange"
+          small
+        />
       </div>
-      </div>
-    </div>
-
-    <!-- 分页 -->
-    <div v-if="total > pageSize" class="pagination-wrap">
-      <el-pagination
-        v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="total"
-        layout="prev, pager, next"
-        @current-change="handlePageChange"
-        small
-      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -117,8 +109,6 @@ import { searchArticles, type SearchResultArticle } from '@/api/services/article
 import { formatDateTime } from '@/utils/dateUtils'
 
 const { t } = useI18n()
-
-console.log('[SearchResult] Component script loaded')
 
 const router = useRouter()
 const route = useRoute()
@@ -129,8 +119,6 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
-
-const siteUrl = computed(() => window.location.origin)
 
 // 从URL获取关键词
 onMounted(() => {
@@ -153,9 +141,6 @@ watch(() => route.query.q, (newKeyword) => {
 // 执行搜索
 const performSearch = async () => {
   const keyword = searchKeyword.value.trim()
-  console.log('[Search] performSearch called with keyword:', keyword)
-  console.log('[Search] currentPage:', currentPage.value, 'pageSize:', pageSize.value)
-
   if (!keyword) {
     searchResults.value = []
     total.value = 0
@@ -164,13 +149,10 @@ const performSearch = async () => {
 
   loading.value = true
   try {
-    console.log('[Search] Calling searchArticles API...')
     const response = await searchArticles(keyword, currentPage.value, pageSize.value)
-    console.log('[Search] API response:', response)
     // 响应结构: { code: 1, data: { list: [], total: 0 } }
     searchResults.value = response.data?.list || []
     total.value = response.data?.total || 0
-    console.log('[Search] Results count:', searchResults.value.length, 'Total:', total.value)
   } catch (error) {
     console.error('[Search] API error:', error)
     ElMessage.error(t('search.failed'))
@@ -196,7 +178,6 @@ const handleSearch = () => {
 const handlePageChange = (page: number) => {
   currentPage.value = page
   performSearch()
-  // 滚动到顶部
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -235,201 +216,209 @@ const formatDate = (timestamp: number): string => {
 
 <style scoped lang="scss">
 .search-result-container {
+  /* 外层布局是 flex 容器，根节点必须显式 width:100%，
+     否则整列收缩为内容宽度（单条短摘要时整列变窄） */
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px 20px 40px;
+  padding: 0 20px 64px;
 }
 
-/* 顶部搜索栏 */
+/* ---------- 顶部搜索栏：吸顶，表面色 + 细描边 ---------- */
 .search-header {
   position: sticky;
   top: 0;
-  background: var(--el-bg-color);
-  padding: 20px 0;
-  border-bottom: 1px solid var(--el-border-color-light);
   z-index: 100;
-
-  .search-header-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-  }
-
-  .search-bar-wrapper {
-    flex: 1;
-  }
-
-  .search-bar {
-    display: flex;
-    gap: 10px;
-
-    .search-input {
-      flex: 1;
-
-      :deep(.el-input__wrapper) {
-        border-radius: 24px;
-        box-shadow: 0 1px 6px rgba(32, 33, 36, 0.28);
-        border-color: transparent;
-        padding: 5px 15px;
-
-        &:hover,
-        &.is-focus {
-          box-shadow: 0 1px 6px rgba(32, 33, 36, 0.28);
-        }
-      }
-    }
-
-    .search-btn {
-      border-radius: 24px;
-      padding: 12px 24px;
-    }
-  }
+  margin: 0 -20px 24px;
+  padding: 16px 20px;
+  background-color: var(--wy-bg-canvas, #fafafa);
+  background: color-mix(in srgb, var(--wy-bg-canvas, #fafafa) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--wy-border-subtle, #e4e4e7);
 }
 
-/* 搜索统计 */
-.search-stats {
-  padding: 15px 0;
-  font-size: 14px;
-  color: #70757a;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-
-  .search-time {
-    color: #70757a;
-  }
-
-  strong {
-    color: #202124;
-  }
-}
-
-/* 搜索结果 */
-.search-content-wrapper {
-  width: 800px;
+.search-header-content {
+  width: 100%;
+  max-width: 680px;
   margin: 0 auto;
 }
 
-.search-content {
-  min-height: 400px;
-  padding-bottom: 20px;
+.search-bar {
+  display: flex;
+  gap: 8px;
+
+  .search-input {
+    flex: 1;
+
+    /* 胶囊 + Google 投影 → 规范输入框：8px、细描边、无阴影 */
+    :deep(.el-input__wrapper) {
+      border-radius: var(--wy-radius-md, 8px);
+      box-shadow: 0 0 0 1px var(--wy-border-subtle, #e4e4e7) inset;
+      padding: 2px 12px;
+      background-color: var(--wy-bg-surface, #fff);
+
+      &:hover {
+        box-shadow: 0 0 0 1px var(--wy-border-strong, #d4d4d8) inset;
+      }
+
+      &.is-focus {
+        box-shadow: 0 0 0 2px var(--wy-brand, #2f5fd0) inset;
+      }
+    }
+  }
+
+  .search-btn {
+    border-radius: var(--wy-radius-md, 8px);
+    padding: 8px 20px;
+    font-weight: 500;
+  }
 }
 
+/* ---------- 结果区：固定宽度内容列（Google 约 650px），左对齐、不随内容伸缩 ---------- */
+.search-body {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.search-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--wy-text-tertiary, #71717a);
+
+  .search-time {
+    color: var(--wy-text-placeholder, #a1a1aa);
+  }
+
+  :deep(strong) {
+    color: var(--wy-text-secondary, #52525b);
+    font-weight: 600;
+  }
+}
+
+.search-content {
+  min-height: 360px;
+}
+
+/* 结果项：Google 式扁平排版 —— 无卡片描边，靠留白分隔；列宽固定，不随内容变化 */
 .search-result-item {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  .result-url {
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
-    margin-bottom: 4px;
-
-    a {
-      color: var(--el-text-color-secondary);
-      text-decoration: none;
-
-      &:hover {
-        text-decoration: underline;
-      }
-    }
-  }
-
-  .result-title {
-    font-size: 20px;
-    margin: 0 0 4px 0;
-    line-height: 1.3;
-
-    a {
-      color: var(--el-color-primary);
-      text-decoration: none;
-
-      &:hover {
-        text-decoration: underline;
-      }
-
-      :deep(em) {
-        font-style: normal;
-        font-weight: bold;
-      }
-    }
-  }
-
-  .result-excerpt {
-    font-size: 14px;
-    line-height: 1.58;
-    color: var(--el-text-color-regular);
-    margin: 0 0 8px 0;
-
-    :deep(em) {
-      font-style: normal;
-      font-weight: bold;
-      color: var(--el-color-danger);  /* 红色高亮 */
-    }
-  }
+  padding: 18px 0;
+  cursor: pointer;
 
   .result-meta {
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--wy-text-tertiary, #71717a);
 
     .meta-author {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 4px;
-      color: var(--el-text-color-primary);
+      gap: 6px;
+      color: var(--wy-text-secondary, #52525b);
+    }
+
+    .meta-dot {
+      color: var(--wy-text-placeholder, #a1a1aa);
+    }
+  }
+
+  .result-title {
+    margin: 0 0 6px;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.4;
+
+    a {
+      color: var(--wy-brand, #2f5fd0);
+      text-decoration: none;
+      transition: color var(--wy-duration, 160ms) var(--wy-easing, ease);
+    }
+
+    &:hover a {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    :deep(em) {
+      font-style: normal;
+      font-weight: 600;
+    }
+  }
+
+  .result-excerpt {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--wy-text-secondary, #52525b);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+
+    /* 关键词高亮：Google 式加粗深色，不铺底色 */
+    :deep(em) {
+      font-style: normal;
+      font-weight: 600;
+      color: var(--wy-text-primary, #18181b);
     }
   }
 }
 
-/* 无结果状态 */
+/* ---------- 无结果 ---------- */
 .no-results {
-  padding: 40px 20px;
-  text-align: left;
+  padding: 32px 4px;
 
   .no-results-text {
+    margin: 0 0 12px;
     font-size: 16px;
-    color: var(--el-text-color-primary);
-    margin-bottom: 20px;
+    color: var(--wy-text-primary, #18181b);
+
+    :deep(strong) {
+      font-weight: 600;
+    }
   }
 
   .no-results-suggestion {
+    margin: 0 0 10px;
     font-size: 14px;
-    color: var(--el-text-color-secondary);
-    margin-bottom: 10px;
+    color: var(--wy-text-secondary, #52525b);
   }
 
   .suggestions {
-    list-style: none;
-    padding: 0;
     margin: 0;
+    padding: 0;
+    list-style: none;
 
     li {
-      font-size: 14px;
-      color: var(--el-text-color-primary);
-      padding: 4px 0;
-      padding-left: 20px;
       position: relative;
+      padding: 4px 0 4px 16px;
+      font-size: 14px;
+      color: var(--wy-text-secondary, #52525b);
 
       &:before {
-        content: '•';
+        content: '';
         position: absolute;
-        left: 0;
-        color: var(--el-text-color-secondary);
+        left: 2px;
+        top: 13px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--wy-text-placeholder, #a1a1aa);
       }
     }
   }
 }
 
-/* 初始状态 */
+/* ---------- 初始状态 ---------- */
 .initial-state {
   display: flex;
   flex-direction: column;
@@ -439,149 +428,92 @@ const formatDate = (timestamp: number): string => {
   text-align: center;
 
   .search-icon {
-    color: var(--el-text-color-placeholder);
-    margin-bottom: 20px;
+    color: var(--wy-text-placeholder, #a1a1aa);
+    margin-bottom: 16px;
   }
 
   .initial-text {
-    font-size: 16px;
-    color: var(--el-text-color-secondary);
     margin: 0;
+    font-size: 15px;
+    color: var(--wy-text-tertiary, #71717a);
   }
 }
 
-/* 分页 */
+/* ---------- 分页 ---------- */
 .pagination-wrap {
   display: flex;
   justify-content: center;
-  padding: 30px 0;
+  padding: 28px 0 8px;
 
   :deep(.el-pagination) {
     .btn-prev,
     .btn-next,
     .el-pager li {
-      background: var(--el-fill-color-light);
-      border-radius: 50%;
-      width: 36px;
-      height: 36px;
-      line-height: 36px;
-      margin: 0 4px;
+      width: 34px;
+      height: 34px;
+      line-height: 34px;
+      margin: 0 3px;
+      border-radius: var(--wy-radius-md, 8px);
+      background: var(--wy-bg-muted, #f5f5f5);
+      color: var(--wy-text-secondary, #52525b);
       font-weight: 500;
-      color: var(--el-text-color-primary);
 
       &:hover {
-        background: var(--el-fill-color);
+        background: var(--wy-brand-soft, #eef3fd);
+        color: var(--wy-brand, #2f5fd0);
       }
 
       &.is-active {
-        background: var(--el-color-primary);
-        color: #fff;
+        background: var(--wy-brand, #2f5fd0);
+        color: var(--wy-on-brand, #fff);
       }
     }
   }
 }
 
-/* 响应式 */
-@media (max-width: 768px) {
+/* ---------- 移动端 ---------- */
+@media (max-width: 767px) {
   .search-result-container {
-    padding: 15px 10px;
+    padding: 0 12px 48px;
   }
 
   .search-header {
-    padding: 15px 0;
+    margin: 0 -12px 16px;
+    padding: 12px;
+  }
 
-    .search-header-content {
-      flex-direction: column;
-      gap: 15px;
-    }
+  .search-bar {
+    gap: 8px;
 
-    .search-bar {
-      flex-direction: column;
-      gap: 8px;
-
-      .search-input {
-        width: 100%;
-
-        :deep(.el-input__wrapper) {
-          padding: 8px 12px;
-        }
-      }
-
-      .search-btn {
-        width: 100%;
-        padding: 10px 20px;
-      }
+    .search-btn {
+      padding: 8px 14px;
     }
   }
 
   .search-stats {
     font-size: 12px;
-    padding: 10px 0;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .search-content-wrapper {
-    width: 100%;
+    gap: 6px;
   }
 
   .search-result-item {
-    padding: 12px 0;
-
-    .result-url {
-      font-size: 11px;
-      word-break: break-all;
-    }
+    padding: 14px 0;
 
     .result-title {
-      font-size: 16px;
-      line-height: 1.4;
-
-      a {
-        word-break: break-word;
-      }
+      font-size: 17px;
     }
 
     .result-excerpt {
       font-size: 13px;
-      line-height: 1.6;
     }
 
     .result-meta {
-      font-size: 11px;
-      flex-wrap: wrap;
-
-      .meta-author {
-        font-size: 11px;
-      }
-    }
-  }
-
-  .no-results {
-    padding: 30px 15px;
-
-    .no-results-text {
-      font-size: 14px;
-    }
-
-    .no-results-suggestion {
-      font-size: 13px;
-    }
-
-    .suggestions li {
-      font-size: 13px;
-      padding: 3px 0;
+      font-size: 12px;
+      gap: 6px;
     }
   }
 
   .initial-state {
-    padding: 60px 20px;
-
-    .search-icon {
-      :deep(.el-icon) {
-        font-size: 60px !important;
-      }
-    }
+    padding: 56px 16px;
 
     .initial-text {
       font-size: 14px;
@@ -589,47 +521,19 @@ const formatDate = (timestamp: number): string => {
   }
 
   .pagination-wrap {
-    padding: 20px 0;
+    padding: 20px 0 4px;
 
     :deep(.el-pagination) {
       .btn-prev,
       .btn-next,
       .el-pager li {
-        width: 32px;
-        height: 32px;
-        line-height: 32px;
-        font-size: 13px;
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
         margin: 0 2px;
+        font-size: 13px;
       }
     }
-  }
-}
-
-/* 超小屏幕优化 */
-@media (max-width: 480px) {
-  .search-result-container {
-    padding: 10px 8px;
-  }
-
-  .search-header {
-    padding: 10px 0;
-  }
-
-  .search-result-item {
-    .result-title {
-      font-size: 15px;
-    }
-
-    .result-excerpt {
-      font-size: 12px;
-    }
-  }
-
-  .result-meta .meta-author {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 150px;
   }
 }
 </style>

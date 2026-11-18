@@ -15,8 +15,11 @@
           </router-link>
         </el-menu-item>
         <!-- 有子菜单的导航项 -->
-        <el-sub-menu v-else :index="`nav-${item.id}`">
-          <template #title>{{ item.label }}</template>
+        <el-sub-menu v-else :index="`nav-${item.id}`" :class="{ 'wy-nav-active': isNavActive(item) }">
+          <!-- 一级项本身可点击：落到该栏目自己的索引页（/docs、/category、/series） -->
+          <template #title>
+            <span class="wy-nav-title" @click.stop="handleNavTitleClick(item)">{{ item.label }}</span>
+          </template>
           <el-menu-item-group>
             <!-- 第二级菜单 -->
             <template v-for="child in item.children" :key="`child-${child.id}`">
@@ -26,8 +29,12 @@
                   {{ child.label || child.name }}
                 </router-link>
               </el-menu-item>
-              <el-sub-menu v-else :index="`nav-${item.id}-sub-${child.id}`">
-                <template #title>{{ child.label || child.name }}</template>
+              <el-sub-menu v-else :index="`nav-${item.id}-sub-${child.id}`"
+                :class="{ 'wy-nav-active': isNavActive(child) }">
+                <template #title>
+                  <span class="wy-nav-title" @click.stop="handleNavTitleClick(child)">{{
+                    child.label || child.name }}</span>
+                </template>
                 <el-menu-item-group>
                   <!-- 第三级菜单 -->
                   <template v-for="grandChild in child.children" :key="`grandchild-${grandChild.id}`">
@@ -38,8 +45,12 @@
                         {{ grandChild.label || grandChild.name }}
                       </router-link>
                     </el-menu-item>
-                    <el-sub-menu v-else :index="`nav-${item.id}-sub-${child.id}-item-${grandChild.id}`">
-                      <template #title>{{ grandChild.label || grandChild.name }}</template>
+                    <el-sub-menu v-else :index="`nav-${item.id}-sub-${child.id}-item-${grandChild.id}`"
+                      :class="{ 'wy-nav-active': isNavActive(grandChild) }">
+                      <template #title>
+                        <span class="wy-nav-title" @click.stop="handleNavTitleClick(grandChild)">{{
+                          grandChild.label || grandChild.name }}</span>
+                      </template>
                       <el-menu-item-group>
                         <!-- 第四级菜单 -->
                         <el-menu-item v-for="greatGrandChild in grandChild.children"
@@ -68,7 +79,7 @@
         <!-- 通知图标 -->
         <div class="right-item" v-if="isAuthenticated">
           <el-popover :width="360" placement="bottom-end" trigger="click"
-            popper-style="box-shadow: rgb(14 18 22 / 35%) 0px 10px 38px -10px, rgb(14 18 22 / 20%) 0px 10px 20px -15px; padding: 5px;">
+            popper-style="box-shadow: var(--wy-shadow-pop, var(--el-box-shadow-light)); padding: 5px;">
             <template #reference>
               <div class="notification-icon-wrapper" @click="handleNotificationIconClick">
                 <el-icon :size="22" class="notification-bell">
@@ -91,8 +102,8 @@
         <div class="right-item">
           <el-dropdown :hide-on-click="false" @command="handleChange">
             <span class="el-dropdown-link">
-              <IconifyIcon icon="heroicons:language" style="font-size: 24px"
-                :color="darkMode ? '#FFFFFFFF' : 'currentColor'" :stroke="darkMode ? '#FFFFFFFF' : 'currentColor'" />
+              <!-- 颜色跟随父级 token（--wy-text-tertiary / 深色同名变量），不再按 darkMode 写死纯白 -->
+              <IconifyIcon icon="heroicons:language" style="font-size: 24px" color="currentColor" />
             </span>
             <template #dropdown>
               <el-dropdown-menu>
@@ -105,7 +116,7 @@
         </div>
         <div class="right-item" v-if="isAuthenticated && appStore.userInfo.username">
           <el-popover :width="300"
-            popper-style="box-shadow: rgb(14 18 22 / 35%) 0px 10px 38px -10px, rgb(14 18 22 / 20%) 0px 10px 20px -15px; padding: 5px;"
+            popper-style="box-shadow: var(--wy-shadow-pop, var(--el-box-shadow-light)); padding: 5px;"
             placement="bottom-end">
             <template #reference>
               <el-avatar :src="appStore.userInfo.profile_image || defaultAvatar" />
@@ -157,6 +168,11 @@
                   <IconifyIcon icon="carbon:cloud-service-management" width="20" height="20"
                     style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
                   <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.dashboard') }}</p>
+                </div>
+                <div class="wy-menu-item" @click="navigateToCreator" v-if="appStore.userRole == 'Author'">
+                  <IconifyIcon icon="carbon:cloud-service-management" width="20" height="20"
+                    style="font-size: 20px; margin-top: 5px; margin-left: 5px" />
+                  <p style="margin: 0; font-size: 14px">{{ $t('navbar.usercenter.creator') }}</p>
                 </div>
                 <div class="wy-menu-divider"></div>
                 <div class="wy-menu-item" @click="handleLogout">
@@ -232,8 +248,7 @@
               <!--语言切换-->
               <el-dropdown-item :command="'language'">
                 <span class="language-icon">
-                  <IconifyIcon icon="heroicons:language" :width="16" :height="16"
-                    :color="darkMode ? '#FFFFFFFF' : 'currentColor'" />
+                  <IconifyIcon icon="heroicons:language" :width="16" :height="16" color="currentColor" />
                 </span>
                 {{ $t('navbar.item.language') || 'Language' }}
               </el-dropdown-item>
@@ -295,6 +310,10 @@
               <el-dropdown-item v-if="appStore.userRole == 'Admin'" :command="'backend'">
                 <IconifyIcon icon="carbon:cloud-service-management" style="font-size: 18px; margin-right: 8px" />
                 {{ $t('navbar.usercenter.dashboard') }}
+              </el-dropdown-item>
+              <el-dropdown-item v-if="appStore.userRole == 'Author'" :command="'creator'">
+                <IconifyIcon icon="carbon:cloud-service-management" style="font-size: 18px; margin-right: 8px" />
+                {{ $t('navbar.usercenter.creator') }}
               </el-dropdown-item>
               <el-dropdown-item divided :command="'logout'">
                 <IconifyIcon icon="material-symbols-light:logout-rounded" style="font-size: 18px; margin-right: 8px" />
@@ -387,14 +406,27 @@ const displayNavData = computed(() => {
   return filtered.map(item => processNavItem(item))
 })
 
+// 系统导航项可点击时落到的索引页（后端 nav 表里可能没存 url，这里兜底）
+const SYS_INDEX_URL: Record<string, string> = {
+  doc: '/docs',
+  category: '/category',
+  series: '/series'
+}
+
 // 处理导航项，添加文档书子菜单和URL
 const processNavItem = (item: NavItem): NavItem => {
   // 处理系统文档导航：需要动态添加文档书列表作为子菜单
   if (item.nav_type === 'sys' && item.type === 'link' && item.value === 'doc') {
     return {
       ...item,
+      // 一级「文档」自己也要能点：落到文档书索引页
+      url: item.url || '/docs',
       children: docBooks.value.map(docBook => ({
-        id: Number(`docbook-${docBook.id}`),
+        // 必须是可用的数字 id：此前写 Number(`docbook-${id}`) 得到 NaN，
+        // 导致所有文档书子项的 el-menu index 全是 `nav-4-sub-NaN`，
+        // EP 判定 is-active 时一命中就命中全部（弹层整体选中态）。
+        // 真实导航 id 都是个位数，这里用 100000 段隔离避免撞车。
+        id: 100000 + docBook.id,
         label: docBook.name,
         name: docBook.name,
         slug: docBook.slug,
@@ -417,33 +449,69 @@ const processNavItem = (item: NavItem): NavItem => {
 
   // 处理子菜单
   if (item.children && item.children.length > 0) {
+    // 系统分类/系列导航：即使后端没存 url，也补上索引页地址，一级项才可点
+    const indexUrl =
+      item.nav_type === 'sys' && item.type === 'link' && item.value
+        ? SYS_INDEX_URL[item.value]
+        : undefined
     return {
       ...item,
+      url: item.url || indexUrl,
       children: item.children.map(child => processNavItem(child))
     }
+  }
+
+  // 系统一级项的 value 直接是路径（如「首页」value='/'）时，兜底成 url
+  if (!item.url && item.nav_type === 'sys' && item.type === 'link' &&
+      item.value && item.value.startsWith('/')) {
+    return { ...item, url: item.value }
   }
 
   return item
 }
 
-// 计算当前激活的菜单项
+// 计算当前激活的菜单项（叶子级）：EP 的 activeIndex 只认注册过的 menu-item，
+// 父级 sub-menu 的高亮走 isNavActive 自算类。
 const activeIndex = computed(() => {
   const path = router.currentRoute.value.path
-  // 查找匹配的导航项ID
-  const findActiveNavId = (items: NavItem[]): string => {
-    for (const item of items) {
-      if (item.url === path || item.value === path || item.slug === path) {
-        return item.id.toString()
-      }
-      if (item.children && item.children.length > 0) {
-        const childResult = findActiveNavId(item.children)
-        if (childResult) return childResult
-      }
-    }
-    return '0' // 默认值
+  let best = ''
+  let bestLen = -1
+
+  const hit = (url?: string) => {
+    if (!url) return false
+    return url === '/' ? path === '/' : path === url || path.startsWith(`${url}/`)
   }
-  return findActiveNavId(navList.value) || '0'
+
+  // chain 记录祖先 id，用于还原 EP 合成 index（nav-p-sub-c-item-g...）
+  const walk = (items: NavItem[], chain: number[]) => {
+    for (const item of items) {
+      const url = (item.url || '').trim()
+      if (hit(url) && url.length > bestLen) {
+        bestLen = url.length
+        const [p, c, g] = chain
+        if (!p) best = item.id.toString()
+        else if (!c) best = `nav-${p}-sub-${item.id}`
+        else if (!g) best = `nav-${p}-sub-${c}-item-${item.id}`
+        else best = `nav-${p}-sub-${c}-item-${g}-child-${item.id}`
+      }
+      if (item.children && item.children.length) walk(item.children, [...chain, item.id])
+    }
+  }
+
+  walk(displayNavData.value, [])
+  return best || '0'
 })
+
+// 父级导航项（含子菜单）是否处于激活路径上：自身或任一后代 URL 前缀命中当前路由
+const isNavActive = (item: NavItem): boolean => {
+  const path = router.currentRoute.value.path
+  const hit = (url?: string) => {
+    if (!url) return false
+    return url === '/' ? path === '/' : path === url || path.startsWith(`${url}/`)
+  }
+  if (hit(item.url)) return true
+  return (item.children || []).some(child => isNavActive(child))
+}
 
 // 获取导航数据
 const fetchNavList = async () => {
@@ -471,6 +539,14 @@ const fetchDocBooks = async () => {
 
 const handleSelect = (key: string, keyPath: string[]) => {
   console.log(key, keyPath)
+}
+
+// 带子菜单的导航项自身也可点击：落到该栏目的索引页（/docs、/category、/series）。
+// el-sub-menu 没有原生「点击导航」，只能在 #title 插槽上挂 click。
+const handleNavTitleClick = (item: NavItem) => {
+  if (!item?.url) return
+  if (item.url === router.currentRoute.value.path) return
+  router.push(item.url)
 }
 const props = defineProps({
   isDark: {
@@ -592,7 +668,13 @@ const navigateToHistory = () => {
 }
 
 const navigateToMyArticles = () => {
-  router.push('/my-articles')
+  // 按角色分流：Author 的文章管理在 Creator 工作台，/my-articles 专属 Contributor
+  router.push(appStore.userRole === 'Author' ? '/creator/articles' : '/my-articles')
+}
+
+// Author 个人博客工作台（仅 Author 角色可见的入口）
+const navigateToCreator = () => {
+  router.push('/creator/settings')
 }
 
 // 点击搜索按钮，跳转到搜索结果页
@@ -667,6 +749,9 @@ const handleUserMenuClick = (command: string) => {
       break
     case 'backend':
       navigateToBackend()
+      break
+    case 'creator':
+      navigateToCreator()
       break
     case 'logout':
       handleLogout()
@@ -889,9 +974,11 @@ defineOptions({ name: 'SiteNav' })
   justify-content: flex-end;
 }
 
+/* 顶栏次级图标用 tertiary，hover 升品牌主色；变量带 EP 原生 fallback，
+   去掉 wy-refine 时也不会变成纯黑或失色。 */
 .el-dropdown-link {
   cursor: pointer;
-  color: var(--el-color-black);
+  color: var(--wy-text-tertiary, var(--el-text-color-secondary));
   display: flex;
   align-items: center;
   border: none;
@@ -901,7 +988,7 @@ defineOptions({ name: 'SiteNav' })
 .el-dropdown-link:hover {
   border: none;
   outline: none;
-  color: var(--el-menu-hover-text-color);
+  color: var(--wy-brand, var(--el-color-primary));
 }
 
 .right-item {
@@ -953,6 +1040,13 @@ defineOptions({ name: 'SiteNav' })
 .wy-nav-link {
   color: var(--el-menu-text-color);
   text-decoration: none;
+}
+
+/* 带子菜单的一级项：整段标题可点，进对应索引页 */
+.wy-nav-title {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
 }
 
 .wy-nav-link:hover {
@@ -1106,5 +1200,14 @@ defineOptions({ name: 'SiteNav' })
     width: 16px !important;
     height: 16px !important;
   }
+}
+</style>
+
+<style>
+/* 父级导航激活态：EP 的 default-active 只认叶子 menu-item，
+   带子菜单的父项高亮由 isNavActive 自算类负责（弹层在 body 下，需全局作用域）。
+   限定在 .el-menu-demo 内，不影响管理后台的菜单。 */
+.el-menu-demo .el-sub-menu.wy-nav-active > .el-sub-menu__title {
+  color: var(--el-menu-active-color);
 }
 </style>

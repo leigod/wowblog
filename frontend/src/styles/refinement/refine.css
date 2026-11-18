@@ -1,0 +1,928 @@
+/* ============================================================
+   WOW Blog · 视觉精修 / 第 2 层：站点样式精修
+   ------------------------------------------------------------
+   约束（本轮硬要求）：
+   1. 不改任何 .vue 模板、DOM 结构、数据绑定、事件、路由 —— 信息架构零变更；
+   2. 不改容器宽度（1200 / 16:8 栅格）、不改组件显隐；
+      轮播图高度按「总高 − 文字区」分配，宽度与裁切方式不变；
+   3. 只调颜色、字阶、字重、圆角、描边、阴影、间距、过渡与状态反馈；
+   4. 每条规则都带 html.wy-refine 前缀，优先级高于组件 scoped 样式；
+      去掉该 class 即完整回到线上原样。
+   ============================================================ */
+
+/* ---------- 全局：补字体栈（assets/base.css 从未被引入） ---------- */
+html.wy-refine body {
+  font-family: var(--wy-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--wy-text-primary);
+  background-color: var(--wy-bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.wy-refine code,
+html.wy-refine pre,
+html.wy-refine .wy-font-mono {
+  font-family: var(--wy-font-mono);
+}
+
+/* 统一的键盘焦点：不改动任何交互逻辑，只补可见反馈 */
+html.wy-refine :focus-visible {
+  outline: 2px solid var(--wy-brand);
+  outline-offset: 2px;
+  border-radius: var(--wy-radius-sm);
+}
+
+/* Element Plus 的文本控件是「外层 div 画框 + 内层原生 input」的套娃结构：
+   聚焦时 .el-input__wrapper.is-focus 已经画了 2px 品牌色 inset，
+   内层原生 input 又命中上面那条 :focus-visible（Chrome 对文本输入控件
+   始终匹配 focus-visible），于是两条蓝框相邻叠成双层，字数统计被夹在中间。
+   焦点提示由外框单独承担已足够，这里只摘掉内层那条重复的环；
+   非 EP 的原生 input（如文档搜索框）不受影响，仍保留 outline。 */
+html.wy-refine .el-input__inner:focus-visible,
+html.wy-refine .el-textarea__inner:focus-visible,
+html.wy-refine .el-select__input:focus-visible,
+html.wy-refine .el-range-input:focus-visible,
+/* el-input-tag（技能标签）：EP 自己的 .el-input-tag__input { outline:none }
+   特异性 (0,1,0) 低于本文件的 (0,2,0)，不补这条就叠成双层框 */
+html.wy-refine .el-input-tag__input:focus-visible,
+html.wy-refine .el-mention__input:focus-visible {
+  outline: none;
+  border-radius: 0;
+}
+
+/* el-dropdown：EP 打开/关闭菜单时会对触发器与菜单项做程序化聚焦（focus()），
+   而 el.focus() 按 CSS 规范始终匹配 :focus-visible，于是「更多」按钮和悬浮的
+   菜单项上都冒出蓝框。EP 对以下元素原生写了 outline:none（(0,1,0)），
+   被本文件全局规则 ((0,2,1)) 压过，这里按同等意图提权摘除；
+   焦点反馈不丢：菜单项有 EP 自带的背景高亮（:focus/:hover 同色），
+   触发按钮保留 EP 按钮的 focus 文字/边框变化。 */
+html.wy-refine .el-dropdown-selfdefine:focus-visible,
+html.wy-refine .el-dropdown__popper-selfdefine:focus-visible,
+html.wy-refine .el-dropdown .el-button:focus-visible,
+html.wy-refine .el-dropdown-menu__item:focus-visible {
+  outline: none;
+  border-radius: 0;
+}
+
+/* ---------- 顶栏 ---------- */
+html.wy-refine .wy-header {
+  background-color: var(--wy-bg-surface);
+  border-bottom: 1px solid var(--wy-border-subtle);
+}
+
+/* ---------- 导航：水平菜单 + 最多三级下拉 ----------
+   菜单树由后台 getSiteNavList() 递归下发，层级数量不固定，
+   因此下面全部用类选择器，不对深度做任何假设。 */
+html.wy-refine .el-menu--horizontal.el-menu-demo {
+  border-bottom: none;
+  background-color: var(--wy-bg-surface);
+}
+
+/* 真实 DOM：el-menu 的直接子元素是 div.wy-container，菜单项在它里面，
+   所以 `.el-menu--horizontal > .el-menu-item` 不会命中（EP 自身的同类
+   规则也一直没命中，原站一级项走的是默认样式）。这里按真实层级命中，
+   并限定桌面容器，避免影响移动端菜单。高度沿用 EP 的 56px，不改布局。 */
+html.wy-refine .el-menu--horizontal.el-menu-demo > .wy-container.hidden-xs-only > .el-menu-item,
+html.wy-refine .el-menu--horizontal.el-menu-demo > .wy-container.hidden-xs-only > .el-sub-menu > .el-sub-menu__title {
+  height: 56px;
+  line-height: 56px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--wy-text-secondary);
+  border-bottom: 2px solid transparent;
+  transition: color var(--wy-duration) var(--wy-easing),
+    border-color var(--wy-duration) var(--wy-easing),
+    background-color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .el-menu--horizontal.el-menu-demo > .wy-container.hidden-xs-only > .el-menu-item:hover,
+html.wy-refine .el-menu--horizontal.el-menu-demo > .wy-container.hidden-xs-only > .el-sub-menu > .el-sub-menu__title:hover {
+  color: var(--wy-text-primary);
+  background-color: transparent;
+  border-bottom-color: var(--wy-border-strong);
+}
+
+html.wy-refine .el-menu--horizontal.el-menu-demo > .wy-container.hidden-xs-only > .el-menu-item.is-active,
+html.wy-refine .el-menu--horizontal.el-menu-demo > .wy-container.hidden-xs-only > .el-sub-menu.is-active > .el-sub-menu__title {
+  color: var(--wy-brand);
+  font-weight: 500;
+  border-bottom-color: var(--wy-brand);
+  background-color: transparent;
+}
+
+html.wy-refine .el-menu--horizontal .wy-nav-link {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  transition: color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .el-menu--horizontal .wy-nav-link:hover {
+  color: inherit;
+}
+
+/* 各级弹出面板：只保留「一层」外观。
+   真实 DOM 是 .el-popper(外层容器) > .el-menu--popup(菜单)，
+   EP 的 is-light 外层自带 1px 边框 + 白底；若两层都描边，
+   视觉上就是「外面还套了一圈」。外层完全让位，
+   由内层菜单单独承担细线 / 圆角 / 阴影。 */
+html.wy-refine .el-popper:has(.el-menu--popup) {
+  border: 0 !important;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* 所有层级共用同一套面板：细线 / 圆角 / 白底 / 一层极浅阴影。
+   这里绝不能加 overflow:hidden —— EP 的二/三级弹层是嵌在上一级
+   .el-menu--popup 内部的绝对定位节点，一裁切就整块消失，鼠标也进不去，
+   更深层级永远无法触发（老计反馈的「三级菜单显示不出来」即此因）。
+   4px padding 已让子项避开 8px 圆角的裁剪区，无需裁切边缘也整齐。 */
+html.wy-refine .el-menu--popup {
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-md);
+  background-color: var(--wy-bg-surface);
+  box-shadow: var(--wy-shadow-pop);
+  padding: 4px;
+  min-width: 168px;
+  overflow: visible;
+}
+
+/* 二级 / 三级是独立弹层，与父级错开 4px；显式补齐全套面板外观，
+   避免 EP 自身对 right-start 的规则把背景 / 边框吃掉。 */
+html.wy-refine .el-menu--popup-right-start {
+  margin-left: 4px;
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-md);
+  background-color: var(--wy-bg-surface);
+  box-shadow: var(--wy-shadow-pop);
+  padding: 4px;
+  min-width: 168px;
+  overflow: visible;
+}
+
+/* 只透明化面板内部的纯 .el-menu 容器；EP 把二级面板本身也写成
+   .el-menu，若不加 :not 会把它的白底与边框一起抹掉。 */
+html.wy-refine .el-menu--popup .el-menu:not(.el-menu--popup) {
+  background-color: transparent;
+  border: none;
+}
+
+/* 逐项不做圆角：一旦每项都圆角，连起来就是「有规律的锯齿」。
+   hover / 选中态改为整行矩形高亮，由外层容器统一裁切圆角。 */
+html.wy-refine .el-menu--popup .el-menu-item,
+html.wy-refine .el-menu--popup .el-sub-menu__title {
+  height: 36px;
+  line-height: 36px;
+  padding: 0 12px;
+  margin: 0;
+  border-radius: 0;
+  font-size: 13px;
+  color: var(--wy-text-secondary);
+  transition: color var(--wy-duration) var(--wy-easing),
+    background-color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .el-menu--popup .el-menu-item:hover,
+html.wy-refine .el-menu--popup .el-sub-menu__title:hover {
+  color: var(--wy-brand);
+  background-color: var(--wy-brand-soft);
+}
+
+html.wy-refine .el-menu--popup .el-menu-item.is-active {
+  color: var(--wy-brand);
+  background-color: var(--wy-brand-soft);
+  font-weight: 500;
+}
+
+/* 箭头统一朝右，不随展开翻转（EP 默认会把 > 翻成 <，很费解） */
+html.wy-refine .el-menu--popup .el-sub-menu__title .el-sub-menu__icon-arrow,
+html.wy-refine .el-menu--popup .el-sub-menu__icon-arrow {
+  color: var(--wy-text-tertiary);
+  font-size: 12px;
+  transform: none !important;
+}
+
+html.wy-refine .el-menu--popup .el-menu-item-group__title {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--wy-text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+/* 关键修正：EP 的二级 / 三级菜单是各自独立的 .el-popper，
+   并不是嵌在同一张面板里的子容器。上一版用下面这个后代选择器
+   把它们当成「内嵌层」剥掉背景 / 边框 / 圆角，结果只剩逐项圆角白块
+   （锯齿）和一条莫名其妙的 2px 竖线。现在不再按深度区分，
+   所有层级都走上面 .el-menu--popup 的统一外观。 */
+
+/* ---------- 卡片：默认细线无阴影，hover 才轻微浮起 ---------- */
+/* EP 把 --el-card-border-radius / --el-card-border-color 直接声明在 .el-card
+   自身上，写在 html 上的 8px 会被组件内部的值（4px）覆盖 —— 这就是收藏、
+   修改密码、注册等页面卡片一直是 4px 的原因。变量要在同一层重设才生效；
+   圆角与描边统一到这里，各页面不再需要单独改。 */
+html.wy-refine .el-card {
+  --el-card-border-radius: var(--wy-radius-md);
+  --el-card-border-color: var(--wy-border-subtle);
+}
+
+html.wy-refine .el-card.wy-card,
+html.wy-refine .el-card.wy-last-update-list {
+  border: 1px solid var(--wy-border-subtle);
+  border-radius: var(--wy-radius-md);
+  background-color: var(--wy-bg-surface);
+  padding: 0;
+  box-shadow: none;
+  transition: border-color var(--wy-duration) var(--wy-easing),
+    box-shadow var(--wy-duration) var(--wy-easing),
+    transform var(--wy-duration) var(--wy-easing);
+}
+
+/* EP 的 .el-card__body 自带 20px padding，padding 只能加在一处。
+   之前加在 .el-card 上叠成了 40px，字阶缩小后卡片显得空 ——
+   不是刻意留白。收回单层，卡片高度完全由内容决定，不设 min-height。
+   「最近更新」是例外：body 要切成上下两个等高容器，padding 下沉到
+   上半容器内部，规则见下方「轮播 / 最近更新等高」段。 */
+html.wy-refine .el-card.wy-card > .el-card__body {
+  padding: 18px 20px;
+}
+
+html.wy-refine .el-card.wy-card:hover {
+  border-color: var(--wy-border-strong);
+  box-shadow: var(--wy-shadow-pop);
+  transform: translateY(-1px);
+}
+
+/* 卡片间距 30px → 16px，仍不改变栅格与顺序 */
+html.wy-refine .wy-card:not(:first-of-type) {
+  margin-top: 16px;
+}
+
+/* ---------- 卡片内部字阶：800 → 600，24/18 → 18/14 ---------- */
+html.wy-refine .wy-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--wy-text-primary);
+  margin-bottom: 16px;
+}
+
+html.wy-refine .wy-card-body .last-item {
+  font-size: 13px;
+  line-height: 22px;
+}
+
+html.wy-refine .wy-card-header .author {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--wy-text-primary);
+}
+
+html.wy-refine .wy-card-header .info {
+  color: var(--wy-text-tertiary);
+  font-size: 12px;
+}
+
+/* 原 15/16px 是给 24px 标题 + 18px 摘要留的节奏，字阶收紧后一并收 */
+html.wy-refine .wy-card-body .content,
+html.wy-refine .wy-card-body .info {
+  padding-top: 12px;
+}
+
+html.wy-refine .wy-card-body .title {
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.4;
+  padding-bottom: 8px;
+  color: var(--wy-text-primary);
+  transition: color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .wy-card:hover .wy-card-body .title {
+  color: var(--wy-brand);
+}
+
+/* 摘要不再由 JS 按 150 字符截断：统一按 2 行钳制，省略号由浏览器补。
+   3 行时文字块过于密集、卡片显得满；收到 2 行后简介只给一句半的余量，
+   中英文摘要的行数仍保持一致，卡片内容区高度不再参差。
+   （script 里的 600 字上限只用于防止整篇文章塞进 DOM，不参与行数计算。） */
+html.wy-refine .wy-card-body .summary {
+  font-size: 14px;
+  color: var(--wy-text-secondary);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+html.wy-refine .wy-card-body .info .left,
+html.wy-refine .wy-no-more-data {
+  color: var(--wy-text-tertiary);
+  font-size: 12px;
+}
+
+html.wy-refine .wy-no-more-data {
+  padding: 20px 0;
+  text-align: center;
+}
+
+/* 封面尺寸 179×108 保持不变（本轮不动布局），只统一圆角与裁切 */
+html.wy-refine .wy-card-image,
+html.wy-refine .wy-card-body .content .right {
+  border-radius: var(--wy-radius-md);
+  overflow: hidden;
+}
+
+html.wy-refine .wy-card-image img {
+  object-fit: cover;
+}
+
+html.wy-refine .wy-card-radius {
+  border-radius: var(--wy-radius-md);
+}
+
+/* ---------- 列表切换按钮：保留图标胶囊，统一尺寸与状态 ---------- */
+html.wy-refine .wy-card-list .el-button.is-round {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 400;
+  gap: 6px;
+  border-radius: var(--wy-radius-pill);
+  transition: background-color var(--wy-duration) var(--wy-easing),
+    color var(--wy-duration) var(--wy-easing),
+    border-color var(--wy-duration) var(--wy-easing);
+}
+
+/* 源码在 span 上写了内联 margin-left:10px，必须提权才能收敛到 8px */
+html.wy-refine .wy-card-list .el-button.is-round > span {
+  margin-left: 8px !important;
+}
+
+html.wy-refine .wy-card-list .el-button.is-round svg {
+  width: 16px;
+  height: 16px;
+}
+
+html.wy-refine .wy-card-list .el-button.is-round:not(.el-button--primary) {
+  background-color: var(--wy-bg-muted);
+  border-color: var(--wy-border-subtle);
+  color: var(--wy-text-secondary);
+}
+
+html.wy-refine .wy-card-list .el-button.is-round:not(.el-button--primary):hover {
+  background-color: var(--wy-brand-soft);
+  border-color: var(--wy-brand-soft);
+  color: var(--wy-brand);
+}
+
+html.wy-refine .wy-card-list .el-button.is-round.el-button--primary.is-plain {
+  background-color: var(--wy-brand-soft);
+  border-color: transparent;
+  color: var(--wy-brand);
+  font-weight: 500;
+}
+
+/* ---------- 精选徽章（is_featured 时才渲染，样式层不改显隐） ---------- */
+html.wy-refine .wy-card-header .right .el-tag {
+  height: 22px;
+  padding: 0 10px;
+  border-radius: var(--wy-radius-pill);
+  border-color: transparent;
+  background-color: var(--wy-featured-bg);
+  color: var(--wy-featured-fg);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+html.wy-refine .wy-card-header .right .el-tag svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ---------- 底栏：标签 + 竖分隔 + 收藏两态 ----------
+   收藏颜色由组件内联 :color 下发（已收藏 / 未收藏），
+   样式层不改这个状态值，只统一标签外观与 hover 反馈。 */
+html.wy-refine .wy-card-body .info .right {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 模板给标签按钮写了内联 style="border: 1px solid #e4e7ed"，
+   只有 !important 才能把它收回 token 体系；不改模板是本轮约束。 */
+html.wy-refine .wy-card-body .info .right .el-button.is-round {
+  height: 22px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 400;
+  background-color: var(--wy-bg-muted) !important;
+  border: 1px solid transparent !important;
+  color: var(--wy-text-secondary) !important;
+  transition: background-color var(--wy-duration) var(--wy-easing),
+    color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .wy-card-body .info .right .el-button.is-round:hover {
+  background-color: var(--wy-brand-soft);
+  color: var(--wy-brand);
+}
+
+html.wy-refine .wy-card-body .info .right .el-divider--vertical {
+  margin: 0 4px;
+  border-color: var(--wy-border-subtle);
+}
+
+html.wy-refine .wy-card-body .info .right > span {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  border-radius: var(--wy-radius-sm);
+  transition: opacity var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .wy-card-body .info .right > span:hover {
+  opacity: 0.7;
+}
+
+/* ---------- 编辑推荐区（替代原轮播） ----------
+   整宽两栏：左主推卡（封面 16:9 + 眉题 + 大标题 + 摘要 + 元信息），
+   右次推列（文字左、小方图右，行间细分割线）。
+   白底直排、无卡片边框，靠字号对比分区——参考 Google News 的「轻」质感。 */
+html.wy-refine .wy-editorial {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 36px;
+  align-items: start;
+}
+
+html.wy-refine .ed-hero {
+  cursor: pointer;
+}
+
+html.wy-refine .ed-hero-cover {
+  border-radius: var(--wy-radius-lg);
+  overflow: hidden;
+  background: var(--wy-bg-muted);
+  aspect-ratio: 16 / 9;
+  max-height: 420px;
+}
+
+html.wy-refine .ed-hero-cover .el-image,
+html.wy-refine .ed-hero-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.wy-refine .ed-hero-body {
+  padding-top: 16px;
+}
+
+html.wy-refine .ed-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+html.wy-refine .ed-kicker .pick {
+  color: var(--wy-brand);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+html.wy-refine .ed-kicker .cat {
+  color: var(--wy-text-secondary);
+}
+
+html.wy-refine .ed-kicker .sep {
+  color: var(--wy-text-tertiary);
+}
+
+html.wy-refine .ed-title {
+  margin: 10px 0 8px;
+  font-size: 24px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: var(--wy-text-primary);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  transition: color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .ed-hero:hover .ed-title {
+  color: var(--wy-brand);
+}
+
+html.wy-refine .ed-summary {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--wy-text-secondary);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+html.wy-refine .ed-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--wy-text-tertiary);
+}
+
+html.wy-refine .ed-meta .sep {
+  color: var(--wy-text-placeholder);
+}
+
+/* 次推列：每行「标题 + 元信息」在左、90×64 小图在右，行间 1px 分隔线 */
+html.wy-refine .ed-side {
+  display: flex;
+  flex-direction: column;
+}
+
+html.wy-refine .ed-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  cursor: pointer;
+}
+
+html.wy-refine .ed-item + .ed-item {
+  border-top: 1px solid var(--wy-border-subtle);
+}
+
+html.wy-refine .ed-item:first-child {
+  padding-top: 4px;
+}
+
+html.wy-refine .ed-item:last-child {
+  padding-bottom: 4px;
+}
+
+html.wy-refine .ed-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+html.wy-refine .ed-item-title {
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--wy-text-primary);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin-bottom: 6px;
+  transition: color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .ed-item:hover .ed-item-title {
+  color: var(--wy-brand);
+}
+
+html.wy-refine .ed-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--wy-text-tertiary);
+}
+
+html.wy-refine .ed-item-meta .sep {
+  color: var(--wy-text-placeholder);
+}
+
+html.wy-refine .ed-item-cover {
+  flex: none;
+  width: 96px;
+  height: 64px;
+  border-radius: var(--wy-radius-sm);
+  overflow: hidden;
+  background: var(--wy-bg-muted);
+}
+
+html.wy-refine .ed-item-cover .el-image,
+html.wy-refine .ed-item-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 无封面占位：品牌低饱和渐变 + 标题首字水印（与相关文章卡同款思路） */
+html.wy-refine .ed-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--wy-brand-soft) 0%, var(--wy-bg-muted) 100%);
+}
+
+html.wy-refine .ed-placeholder .ed-mark {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--wy-brand);
+  opacity: 0.35;
+}
+
+html.wy-refine .ed-placeholder.is-sm .ed-mark {
+  font-size: 24px;
+}
+
+@media only screen and (max-width: 991px) {
+  /* 平板以下：主卡在上、次推列在下 */
+  html.wy-refine .wy-editorial {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+@media only screen and (max-width: 767px) {
+  html.wy-refine .ed-hero-body {
+    padding-top: 12px;
+  }
+  html.wy-refine .ed-title {
+    font-size: 18px;
+  }
+  html.wy-refine .ed-summary {
+    margin-bottom: 8px;
+  }
+  html.wy-refine .ed-meta {
+    display: none;
+  }
+  html.wy-refine .ed-item {
+    padding: 12px 0;
+  }
+  html.wy-refine .ed-item-cover {
+    width: 84px;
+    height: 56px;
+  }
+}
+
+/* ---------- 最近更新 / 热门标签 ---------- */
+html.wy-refine .wy-card-body .last-item .item-category,
+html.wy-refine .wy-card-body .last-item .item-title {
+  color: var(--wy-text-secondary);
+  font-size: 13px;
+}
+
+/* 标题 hover 下划线：EP 用 .el-link::after 绝对定位 left:0/right:0 画
+   一条通栏线，链接被拉成 block 撑满整行后，哪怕只有四个字也会拖出
+   满宽蓝线。关掉伪元素，改用文字自身的 text-decoration —— 下划线
+   宽度跟随可见文字，整行的点击热区保持不变。
+   两个类名都覆盖，兼容 EP「常显下划线」与「仅 hover 显示」两种配置。 */
+html.wy-refine .wy-card-body .last-item .item-title .el-link.is-underline::after,
+html.wy-refine .wy-card-body .last-item .item-title .el-link.is-hover-underline:hover::after {
+  display: none;
+}
+
+html.wy-refine .wy-card-body .last-item .item-title .el-link:hover .el-link__inner {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* 热门标签：EP 的 primary/light 标签底色本来就是 --wy-brand-soft，
+   原 hover 规则前后同色，等于没有反馈。改为主色实底 + 轻微上移。 */
+html.wy-refine .wy-hot-tags .el-tag {
+  margin: 4px;
+  cursor: pointer;
+  transition: background-color var(--wy-duration) var(--wy-easing),
+    color var(--wy-duration) var(--wy-easing),
+    border-color var(--wy-duration) var(--wy-easing),
+    box-shadow var(--wy-duration) var(--wy-easing),
+    transform var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .wy-hot-tags .el-tag:hover {
+  background-color: var(--wy-brand) !important;
+  border-color: var(--wy-brand) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(47, 95, 208, 0.18);
+}
+
+/* 深色下主色变亮，白字对比不足，换成深色画布色 */
+html.wy-refine.dark .wy-hot-tags .el-tag:hover {
+  color: var(--wy-bg-canvas) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+html.wy-refine .wy-load-more {
+  margin-top: 24px;
+}
+
+/* ---------- 通用按钮 / 输入框 / 标签（EP 组件，未改任何调用） ---------- */
+html.wy-refine .el-button:not(.is-round):not(.is-circle):not(.is-text) {
+  border-radius: var(--wy-radius-md);
+  font-weight: 500;
+  transition: background-color var(--wy-duration) var(--wy-easing),
+    border-color var(--wy-duration) var(--wy-easing),
+    color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .el-button.is-text {
+  font-weight: 500;
+}
+
+html.wy-refine .el-input__wrapper {
+  border-radius: var(--wy-radius-md);
+  box-shadow: 0 0 0 1px var(--wy-border-subtle) inset;
+  transition: box-shadow var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px var(--wy-brand) inset;
+}
+
+html.wy-refine .el-switch__core {
+  border-color: var(--wy-border-strong);
+}
+
+/* ---------- 页脚：后台可编辑的六类展示位一个不删，只调对比度 ---------- */
+/* 内容区收尾留白：浅色内容直接撞上深色页脚太生硬，统一给一段画布色缓冲。
+   首页已在上一轮定稿，这里只作用在 .wy-main 容器上，不改任何页面结构。 */
+html.wy-refine .wy-main {
+  padding-bottom: 56px;
+}
+
+html.wy-refine .site-footer {
+  background-color: #18181b;
+  border-top: 1px solid #2e2e33;
+  color: #f4f4f5;
+}
+
+html.wy-refine .footer-bottom {
+  border-top: 1px solid #2e2e33;
+}
+
+html.wy-refine .footer-description {
+  color: #a1a1aa;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+html.wy-refine .social-link {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+  transition: background-color var(--wy-duration) var(--wy-easing),
+    color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .social-link:hover {
+  background-color: rgba(124, 155, 245, 0.22);
+  color: #ffffff;
+}
+
+html.wy-refine .nav-group-title {
+  color: #f4f4f5;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+html.wy-refine .nav-group-links a {
+  color: #a1a1aa;
+  font-size: 13px;
+  transition: color var(--wy-duration) var(--wy-easing);
+}
+
+html.wy-refine .nav-group-links a:hover {
+  color: #ffffff;
+}
+
+html.wy-refine .footer-copyright,
+html.wy-refine .footer-icp a {
+  color: #8a8a93;
+}
+
+html.wy-refine .footer-icp a:hover {
+  color: #d4d4d8;
+}
+
+@media only screen and (max-width: 767px) {
+  html.wy-refine .wy-main {
+    padding-bottom: 36px;
+  }
+}
+
+/* ---------- 深色模式下的少量例外 ---------- */
+html.wy-refine.dark .wy-header,
+html.wy-refine.dark .el-menu--horizontal.el-menu-demo {
+  background-color: var(--wy-bg-surface);
+}
+
+html.wy-refine.dark .site-footer {
+  background-color: #0e0e10;
+  border-top-color: #2e2e33;
+}
+
+/* 文字区已不叠在图上（编辑推荐区为主卡图上文下），深浅色自动跟随 token */
+
+/* 深色下 EP 默认的 info 浅底标签会变成刺眼白块，收敛到表面色 */
+html.wy-refine.dark .el-tag--info.el-tag--light {
+  background-color: var(--wy-bg-muted);
+  border-color: var(--wy-border-subtle);
+  color: var(--wy-text-secondary);
+}
+
+html.wy-refine.dark .el-button--info.is-plain {
+  background-color: var(--wy-bg-muted);
+  border-color: var(--wy-border-subtle);
+  color: var(--wy-text-secondary);
+}
+
+/* 深色下底栏标签改用可见但不刺眼的细线，避免浅灰内联描边残留 */
+html.wy-refine.dark .wy-card-body .info .right .el-button.is-round {
+  border-color: var(--wy-border-subtle) !important;
+}
+
+/* 深色下文章封面多为白底素材，会形成刺眼白块。
+   只做 12% 降亮（不改图片资源、尺寸与裁切），如不需要可整段删除。 */
+html.wy-refine.dark .wy-card-image img {
+  filter: brightness(0.88);
+}
+
+/* ---------- 顶栏图标 / 通知面板 / 用户面板：按 token 层级统一 ----------
+   规范见 tokens.css：文字 primary > secondary > tertiary > placeholder；
+   边框 subtle（内部分隔）弱于 strong（输入框 / 强调描边）；弹层统一
+   --wy-shadow-pop + --wy-radius-md。
+   组件源码已把硬编码收回 token（SiteNav.vue / AdminLayout.vue）：语言图标
+   不再按 darkMode 写死纯白、scoped 取色改用 --wy-text-tertiary、四个
+   popper-style 的 0.35 黑阴影改用 --wy-shadow-pop，均带 EP 原生 fallback。
+   这里只保留精修层自身的层级决策，不再用 !important 压过组件内联值。 */
+
+/* 顶栏次级图标统一到 tertiary（辅助级），hover 才升到品牌主色。
+   搜索按钮的图标走 currentColor，改按钮自身 color 即可一起生效。 */
+html.wy-refine .wy-header .notification-bell,
+html.wy-refine .wy-header .el-button.is-circle,
+html.wy-refine .wy-header .el-dropdown-link {
+  color: var(--wy-text-tertiary);
+}
+html.wy-refine .wy-header .el-button.is-circle .el-icon,
+html.wy-refine .wy-header .el-dropdown-link svg {
+  color: inherit;
+}
+html.wy-refine .wy-header .notification-icon-wrapper:hover .notification-bell,
+html.wy-refine .wy-header .el-button.is-circle:hover,
+html.wy-refine .wy-header .el-dropdown-link:hover {
+  color: var(--wy-brand);
+}
+/* 深色无需再提权：组件里 --wy-text-tertiary / --wy-brand 由
+   html.wy-refine.dark 自动换值，内联纯白已删除。 */
+
+/* 弹层圆角 / 描边回到规范值；阴影已由组件内联的 --wy-shadow-pop 提供，
+   这里不再重复声明，因此也不需要 !important。:has() 精确限定四个顶栏
+   popover（前台通知 / 用户、后台通知 / 用户），不波及 tooltip / select / dropdown。 */
+html.wy-refine .el-popper:has(.notification-panel),
+html.wy-refine .el-popper:has(.wy-menu-wrapper),
+html.wy-refine .el-popper:has(.demo-rich-conent) {
+  border-radius: var(--wy-radius-md);
+  border-color: var(--wy-border-subtle);
+}
+
+/* 面板内部分隔线一律用 subtle：头部 / 标签栏 / 底部 / 用户菜单两处 */
+html.wy-refine .notification-panel .notification-header,
+html.wy-refine .notification-panel .notification-tabs {
+  border-bottom-color: var(--wy-border-subtle);
+}
+html.wy-refine .notification-panel .notification-footer {
+  border-top-color: var(--wy-border-subtle);
+}
+html.wy-refine .wy-menu-wrapper .wy-menu-divider {
+  border-top-color: var(--wy-border-subtle);
+}
+
+/* 用户菜单：文字保持 secondary（正文级，符合规范），图标弱一级到 tertiary，
+   hover 时两者一起升到品牌主色，保持状态反馈的层级关系。 */
+html.wy-refine .wy-menu-wrapper .wy-menu-item {
+  color: var(--wy-text-secondary);
+}
+html.wy-refine .wy-menu-wrapper .wy-menu-item svg {
+  color: var(--wy-text-tertiary);
+}
+html.wy-refine .wy-menu-wrapper .wy-menu-item:hover,
+html.wy-refine .wy-menu-wrapper .wy-menu-item:hover svg {
+  color: var(--wy-brand);
+}

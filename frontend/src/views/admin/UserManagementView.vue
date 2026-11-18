@@ -74,7 +74,7 @@
                   <el-button @click="handleSendMessage(user)" size="small">
                     <IconifyIcon icon="streamline-plump:mail-send-email-message" width="16" height="16" />
                   </el-button>
-                  <el-dropdown trigger="click" @command="onDropdownCommand(user)">
+                  <el-dropdown trigger="click" @command="onDropdownCommand(user, $event)">
                     <el-button size="small">
                       <el-icon><More /></el-icon>
                     </el-button>
@@ -159,7 +159,7 @@
               <el-button circle type="default" @click="handleSendMessage(row)">
                 <IconifyIcon icon="streamline-plump:mail-send-email-message" color="#000000" width="16" height="16" />
               </el-button>
-              <el-dropdown trigger="click" @command="onDropdownCommand(row)">
+              <el-dropdown trigger="click" @command="onDropdownCommand(row, $event)">
                 <el-button round text type="default" size="small">
                   <el-icon>
                     <More />
@@ -542,8 +542,11 @@ const handleDropdownCommand = (user: any, command: string) => {
 }
 
 // 为模板中的下拉菜单事件创建包装函数（不带类型注解用于模板）
-const onDropdownCommand = (user: any) => {
-  return (cmd: string) => handleDropdownCommand(user, cmd)
+// el-dropdown 的 command 事件处理器：直接接收 (user, command) 双参数。
+// 不要写成柯里化 —— 模板里 @command="fn(user)" 是 inline 表达式，
+// 返回的内层函数会被丢弃，command 永远传不进来（表现为菜单项点击无反应）
+const onDropdownCommand = (user: any, cmd: string) => {
+  handleDropdownCommand(user, cmd)
 }
 
 // 修改角色提交

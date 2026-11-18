@@ -217,7 +217,10 @@ async def check_article_slug_unique(db: AsyncSession, slug: str):
 # 根据slug获取文章
 async def get_article_by_slug(db: AsyncSession, article_slug: str):
     result = await db.execute(
-        select(models.BlogArticle, models_users.User.full_name, models_users.User.username, models_users.User.profile_image)
+        select(
+            models.BlogArticle, models_users.User.full_name, models_users.User.username,
+            models_users.User.profile_image, models_users.User.role
+        )
         .join(models_users.User, models.BlogArticle.author == models_users.User.id)
         .where(models.BlogArticle.slug == article_slug)
     )
@@ -225,8 +228,8 @@ async def get_article_by_slug(db: AsyncSession, article_slug: str):
     article_with_user = result.first()
     if not article_with_user:
         return None
-    
-    article, full_name, username, profile_image = article_with_user
+
+    article, full_name, username, profile_image, author_role = article_with_user
     
     # 处理标签信息
     tags = []
@@ -264,6 +267,7 @@ async def get_article_by_slug(db: AsyncSession, article_slug: str):
         "username": username,
         "full_name": full_name,
         "profile_image": profile_image,
+        "author_role": author_role,
         "tags": tags,
         "stat_data": stat_data,
         "series": series,
@@ -674,8 +678,37 @@ async def get_home_article_list(reqdata: schemas.HomeArticleListRequest, db: Asy
 
     # 执行查询
     result = await db.execute(query)
+    rows = result.all()
+
+    # 首页轮播文字区需要「文章分类」与「阅读数」。
+    # 这里刻意不改动主查询的 join：分类/统计表若用 outerjoin，可能因脏数据
+    # 造成行数变化；改为按 id 批量补两次小查询，只给响应增字段，语义不变。
+    category_ids = {article.category_id for article, *_ in rows if article.category_id}
+    category_map: dict[int, tuple[str | None, str | None]] = {}
+    if category_ids:
+        cat_result = await db.execute(
+            select(
+                models_category.BlogCategory.id,
+                models_category.BlogCategory.name,
+                models_category.BlogCategory.slug,
+            ).where(models_category.BlogCategory.id.in_(category_ids))
+        )
+        category_map = {cid: (name, slug) for cid, name, slug in cat_result.all()}
+
+    article_ids = [article.id for article, *_ in rows]
+    views_map: dict[int, int] = {}
+    if article_ids:
+        stat_result = await db.execute(
+            select(
+                models.BlogArticleStatData.article_id,
+                models.BlogArticleStatData.views,
+            ).where(models.BlogArticleStatData.article_id.in_(article_ids))
+        )
+        for aid, views in stat_result.all():
+            views_map[aid] = views or 0
+
     articles_with_user_info = []
-    for row in result.all():
+    for row in rows:
         article, full_name, username, profile_image = row
         # 将文章对象转换为字典
         article_dict = schemas.BlogArticle.model_validate(article).model_dump()
@@ -683,6 +716,11 @@ async def get_home_article_list(reqdata: schemas.HomeArticleListRequest, db: Asy
         article_dict['author_full_name'] = full_name
         article_dict['author_username'] = username
         article_dict['author_profile_image'] = profile_image
+        # 首页轮播元信息（新增字段，旧调用方忽略即可，向后兼容）
+        category_name, category_slug = category_map.get(article.category_id, (None, None))
+        article_dict['category_name'] = category_name
+        article_dict['category_slug'] = category_slug
+        article_dict['views'] = views_map.get(article.id, 0)
         articles_with_user_info.append(article_dict)
     
     return articles_with_user_info
@@ -773,6 +811,97 @@ async def get_recently_updated_articles(db: AsyncSession, limit: int = 5):
         }
         articles.append(article_data)
         
+    return articles
+
+
+# 编辑推荐（首页上部）：置顶+加精优先，不足时逐级降级补位。
+# 数据口径：L1 is_pin AND is_featured → L2 补 is_featured → L3 补 is_recommend
+# → L4 近期高阅读兜底（join 统计表按 views 倒序）。
+# 每层命中来源记录在 editorial_source，便于前端/管理端核对是哪一级兜上来的。
+async def get_editorial_articles(db: AsyncSession, limit: int = 5):
+    base_where = [
+        models.BlogArticle.status == 'published',
+        models.BlogArticle.deletetime.is_(None),
+    ]
+    # 运营排序：sort 权重倒序（管理端可调），同权重按发布时间新→旧
+    order_by = [
+        models.BlogArticle.sort.desc(),
+        func.coalesce(models.BlogArticle.pub_time, models.BlogArticle.createtime).desc(),
+    ]
+
+    # 取数口径：整个编辑推荐区以「推荐」为主（is_recommend），
+    # 焦点大图优先推荐+置顶，加精（is_featured）只作降级补充——
+    # 加精在首页下方已有「精选」列表，不再占用推荐位主口径。
+    layers = [
+        (and_(models.BlogArticle.is_recommend == 1, models.BlogArticle.is_pin == 1), 'recommend_pin'),
+        (models.BlogArticle.is_recommend == 1, 'recommend'),
+        (models.BlogArticle.is_featured == 1, 'featured'),
+        (None, 'popular'),
+    ]
+
+    picked = []
+    used_ids: List[int] = []
+    for cond, src in layers:
+        if len(picked) >= limit:
+            break
+        need = limit - len(picked)
+        q = select(
+            models.BlogArticle,
+            models_users.User.username,
+            models_users.User.full_name,
+            models_users.User.profile_image,
+        ).join(models_users.User, models.BlogArticle.author == models_users.User.id)
+        if cond is not None:
+            q = q.where(*base_where, cond).order_by(*order_by)
+        else:
+            # L4 兜底：join 统计表按阅读数，再按运营排序
+            q = q.join(
+                models.BlogArticleStatData,
+                models.BlogArticle.id == models.BlogArticleStatData.article_id,
+            ).where(*base_where).order_by(
+                models.BlogArticleStatData.views.desc(),
+                *order_by,
+            )
+        if used_ids:
+            q = q.where(models.BlogArticle.id.not_in(used_ids))
+        rows = (await db.execute(q.limit(need))).all()
+        for article, username, full_name, profile_image in rows:
+            picked.append((article, username, full_name, profile_image, src))
+            used_ids.append(article.id)
+
+    # 批量补分类与阅读数（与 get_home_article_list 同思路：不改主查询 join，按 id 补两次小查询）
+    category_ids = {a.category_id for a, *_ in picked if a.category_id}
+    category_map: dict[int, tuple[str | None, str | None]] = {}
+    if category_ids:
+        cat_result = await db.execute(
+            select(
+                models_category.BlogCategory.id,
+                models_category.BlogCategory.name,
+                models_category.BlogCategory.slug,
+            ).where(models_category.BlogCategory.id.in_(category_ids))
+        )
+        category_map = {cid: (name, slug) for cid, name, slug in cat_result.all()}
+
+    stat_result = await db.execute(
+        select(
+            models.BlogArticleStatData.article_id,
+            models.BlogArticleStatData.views,
+        ).where(models.BlogArticleStatData.article_id.in_(used_ids))
+    )
+    views_map = {aid: views or 0 for aid, views in stat_result.all()}
+
+    articles = []
+    for article, username, full_name, profile_image, src in picked:
+        article_dict = schemas.BlogArticle.model_validate(article).model_dump()
+        article_dict['author_username'] = username
+        article_dict['author_full_name'] = full_name
+        article_dict['author_profile_image'] = profile_image
+        category_name, category_slug = category_map.get(article.category_id, (None, None))
+        article_dict['category_name'] = category_name
+        article_dict['category_slug'] = category_slug
+        article_dict['views'] = views_map.get(article.id, 0)
+        article_dict['editorial_source'] = src
+        articles.append(article_dict)
     return articles
 
 
@@ -1159,8 +1288,23 @@ async def check_like(article_id: int, user_id: int, db: AsyncSession):
 
 
 # 根据作者ID获取文章列表
-async def get_articles_by_author(db: AsyncSession, author_id: int, limit: int = 10, skip: int = 0, status: str = None):
-    # 联表查询文章和统计数据
+async def get_articles_by_author(
+    db: AsyncSession, author_id: int, limit: int = 10, skip: int = 0, status: str = None,
+    blog_category_id: int | None = None, blog_series_id: int | None = None
+):
+    # 统计数据聚合子查询：同一文章若有重复统计行，直接 LEFT JOIN 会让文章在列表里重复、
+    # 并导致分页 offset 错位。这里按 article_id 聚合后再联表（取最大 views）。
+    stat_subq = (
+        select(
+            models.BlogArticleStatData.article_id.label('article_id'),
+            func.max(models.BlogArticleStatData.views).label('views'),
+        )
+        .group_by(models.BlogArticleStatData.article_id)
+        .subquery()
+    )
+
+    # 联表查询文章和统计数据；char_length 在 DB 端算正文字数（用于前端估阅读时长），
+    # SUBSTRING 取正文头部（前端剥 HTML 标签后做摘要钳制），均不传输 content 本体
     query = (
         select(
             models.BlogArticle.id,
@@ -1171,14 +1315,31 @@ async def get_articles_by_author(db: AsyncSession, author_id: int, limit: int = 
             models.BlogArticle.pub_time,
             models.BlogArticle.createtime,
             models.BlogArticle.status,
-            models.BlogArticleStatData.views.label('reads')
+            models.BlogArticle.blog_top,
+            models.BlogArticle.blog_sort,
+            func.char_length(models.BlogArticle.content).label('content_len'),
+            func.substring(models.BlogArticle.content, 1, 800).label('content_preview'),
+            stat_subq.c.views.label('reads')
         )
-        .join(models.BlogArticleStatData, models.BlogArticle.id == models.BlogArticleStatData.article_id, isouter=True)
+        .join(stat_subq, models.BlogArticle.id == stat_subq.c.article_id, isouter=True)
         .where(models.BlogArticle.author == author_id)
-        .order_by(models.BlogArticle.createtime.desc())
+        # 个人 blog 排序：置顶优先 → blog_sort 权重 → 发布时间倒序
+        # （无置顶且 blog_sort 全 0 时自然退化为发布时间倒序）
+        .order_by(
+            models.BlogArticle.blog_top.desc(),
+            models.BlogArticle.blog_sort.desc(),
+            models.BlogArticle.pub_time.desc(),
+            models.BlogArticle.createtime.desc()
+        )
         .offset(skip)
         .limit(limit)
     )
+
+    # 博客维度过滤（/blog/:username 聚合视图）
+    if blog_category_id is not None:
+        query = query.where(models.BlogArticle.blog_category_id == blog_category_id)
+    if blog_series_id is not None:
+        query = query.where(models.BlogArticle.blog_series_id == blog_series_id)
 
     # 如果指定了状态，添加状态过滤条件
     if status:
@@ -1199,19 +1360,29 @@ async def get_articles_by_author(db: AsyncSession, author_id: int, limit: int = 
             'pub_time': row.pub_time,
             'createtime': row.createtime,
             'status': row.status,
+            'blog_top': row.blog_top or 0,
+            'blog_sort': row.blog_sort or 0,
+            'content_len': row.content_len or 0,
+            'content_preview': row.content_preview or '',
             'reads': row.reads or 0
         })
     return articles
 
 
-# 根据作者ID获取文章总数
-async def get_articles_count_by_author(db: AsyncSession, author_id: int, status: str = 'published'):
-    query = (
-        select(func.count())
-        .select_from(models.BlogArticle)
-        .where(models.BlogArticle.author == author_id)
-        .where(models.BlogArticle.status == status)
+# 根据作者ID获取文章总数（可按 blog 归属过滤）
+async def get_articles_count_by_author(
+    db: AsyncSession, author_id: int, status: str = 'published',
+    blog_category_id: int | None = None, blog_series_id: int | None = None
+):
+    query = select(func.count()).select_from(models.BlogArticle).where(
+        models.BlogArticle.author == author_id
     )
+    if status:
+        query = query.where(models.BlogArticle.status == status)
+    if blog_category_id is not None:
+        query = query.where(models.BlogArticle.blog_category_id == blog_category_id)
+    if blog_series_id is not None:
+        query = query.where(models.BlogArticle.blog_series_id == blog_series_id)
     result = await db.execute(query)
     return result.scalar() or 0
 

@@ -1014,15 +1014,16 @@ body {
     cursor: col-resize;
   }
 
-  /* Code and preformatted text styles */
+  /* Code and preformatted text styles
+     内联代码保持行内显示（display 默认 inline），在文字段落中正常嵌入；
+     块级展示由 pre 代码块承担。padding 恢复 Tiptap 默认的小间距 */
   code {
     background-color: var(--purple-light);
     border-radius: 0.4rem;
     color: var(--black);
     font-size: 0.85rem;
-    padding: 1.5em 2em;
+    padding: 0.25rem 0.5rem;
     border: 1px solid var(--gray-3);
-    display: block;
   }
 
   pre {

@@ -1,7 +1,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { ADMIN_LOCALE_KEY, BLOG_LOCALE_KEY } from '@/locale/index'
+import { ADMIN_LOCALE_KEY, BLOG_LOCALE_KEY, isBackendPath } from '@/locale/index'
 
 export default function useLocale() {
   const i18 = useI18n()
@@ -13,7 +13,7 @@ export default function useLocale() {
   
   // 判断是否在管理后台页面
   const isAdminPage = () => {
-    return window.location.pathname.startsWith('/admin/')
+    return isBackendPath(window.location.pathname)
   }
   
   // 切换语言函数

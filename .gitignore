@@ -21,3 +21,6 @@ desktop.ini
 # 重新包含数据库迁移脚本（覆盖全局 ~/.gitignore_global 中的 *.sql）
 # migrations 是数据库 schema，开源仓库必须入库
 !backend/migrations/**
+
+# 发布同步脚本含维护者本机绝对路径，仅供本地使用，不入库
+scripts/

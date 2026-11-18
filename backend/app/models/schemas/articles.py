@@ -14,8 +14,16 @@ class BlogArticleBase(BaseModel):
     content: str
     author: int
     co_authors: str | None = None
-    category_id: int
+    # 平台分类/系列：审核发布时由 Admin/Editor 选择；Author 提交时可空
+    category_id: int | None = None
     series_id: int | None = None
+    # 作者自己 blog 的分类/系列（wb_user_categories / wb_user_series 的 id）：
+    # Author 在 Creator 工作台发布时选择，非必填，与平台维度互不影响
+    blog_category_id: int | None = None
+    blog_series_id: int | None = None
+    # 个人 blog 内置顶/排序（仅影响 /blog/:username 展示顺序）
+    blog_top: int | None = 0
+    blog_sort: int | None = 0
     tags: str | None = None
     status: Literal['draft', 'published', 'scheduled', 'deleted'] = 'draft'
     pub_time: int | None = int(time.time())
@@ -39,7 +47,20 @@ class BlogArticleUpdate(BlogArticleBase):
     author: int | None = None
     # is_pin: int | None = 0
     # is_recommend: int | None = 0
+    # 平台维度的排序权重（Admin 后台可编辑；与个人 blog 的 blog_sort 互不影响）
+    sort: int | None = None
     updatetime: int | None = int(time.time())
+
+
+class BlogArticleUpdateBlogMeta(BaseModel):
+    """个人 blog 维度的置顶/排序（Author 在 Creator 工作台自行管理）。"""
+    blog_top: int | None = None
+    blog_sort: int | None = None
+
+
+class BlogArticleUpdateSort(BaseModel):
+    """平台维度的排序权重（Admin 后台编辑 wb_articles.sort）。"""
+    sort: int
 
 
 class BlogArticleUpdateStatus(BaseModel):
@@ -97,6 +118,8 @@ class BlogArticle(BlogArticleBase):
     is_pin: int | None = 0
     is_recommend: int | None = 0
     is_featured: int | None = 0
+    # 平台排序权重（Admin 后台可编辑）
+    sort: int | None = 0
     createtime: int | None = int(time.time())
     # 作者详细信息（用于管理后台显示）
     author_full_name: str | None = None
@@ -104,6 +127,21 @@ class BlogArticle(BlogArticleBase):
     author_profile_image: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SeriesProgress(BaseModel):
+    """详情页「所属系列」卡片：文章在系列中的位置与跳转信息。
+
+    source='site' → 平台系列，跳 /series/{slug}；
+    source='blog' → 作者个人 blog 系列，跳 /blog/{username}/series/{slug}。
+    """
+    id: int
+    name: str
+    slug: str | None = None
+    description: str | None = None
+    index: int = 1
+    total: int = 1
+    source: Literal['site', 'blog'] = 'site'
 
 
 class BlogArticleResponse(BaseModel):
@@ -117,8 +155,17 @@ class BlogArticleResponse(BaseModel):
     tags: List[BlogTag] = []
     # 文章统计数据
     stat_data: ArticleStatData
-    # 系列信息
+    # 系列信息（平台系列，兼容旧版详情页顶部横条）
     series: Optional['BlogSeries'] = None
+    # ---- 动态详情页布局相关 ----
+    # 作者角色：Author/Admin/Contributor/...；供前端判断是否切换 blog 版布局
+    author_role: str | None = None
+    # 作者是否开通了个人 blog（wb_user_blogs 有行）
+    blog_opened: bool = False
+    # 平台系列的所属进度（source='site'，跳 /series/{slug}）
+    series_progress: Optional[SeriesProgress] = None
+    # 个人 blog 系列的所属进度（source='blog'，跳 /blog/{username}/series/{slug}）
+    blog_series_progress: Optional[SeriesProgress] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -17,8 +17,8 @@ from app.exceptions import (
 from app.routers import blog, users, media, auth, docbook, doc, notifications, admin_comments, member_invitations, websocket
 from app.routers import admin_logs
 from app.middleware.admin_audit import admin_audit_middleware
-from app.internal import admin, upload, articles
-from app.dependencies.authentication import get_current_active_admin_user
+from app.internal import admin, upload, articles, creator
+from app.dependencies.authentication import get_current_active_admin_user, get_current_blog_owner
 from app.utils.logger import cleanup_old_logs, compress_old_logs, DateRotatingFileHandler
 from fastapi.responses import JSONResponse
 from app.middleware.rate_limit import check_rate_limit, RATE_LIMITS
@@ -125,6 +125,10 @@ app.include_router(
 app.include_router(upload.router, prefix='/api', tags=['upload'])
 app.include_router(articles.router, prefix='/api/admin', tags=['articles'], dependencies=[Depends(get_current_active_admin_user)],
     responses={404: {"description": "Not Found!"}})
+
+# Author 个人博客（Creator 工作台）：整组仅 Admin/Author 可访问，数据按当前用户隔离
+app.include_router(creator.router, prefix='/api/creator', tags=['creator'],
+                   dependencies=[Depends(get_current_blog_owner)])
 
 # 文档模块路由
 app.include_router(docbook.router, prefix='/api', tags=['docbook'])

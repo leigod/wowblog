@@ -71,7 +71,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Edit, EditPen, Delete } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
-import { getUserArticles, getUserArticleCount, updateArticle, deleteArticle } from '@/api/services/articles'
+import { getUserArticles, getUserArticleCount, updateMyArticle, updateMyArticleStatus, deleteMyArticle } from '@/api/services/articles'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -198,9 +198,9 @@ const getStatusText = (status: string) => {
   }
 }
 
-// 创建文章
+// 创建文章：新开页面（不替换当前文章管理界面）
 const handleCreateArticle = () => {
-  router.push('/my-articles/create')
+  window.open('/my-articles/create', '_blank')
 }
 
 // 编辑文章
@@ -221,7 +221,7 @@ const handlePublishArticle = async (id: number) => {
       }
     )
 
-    const res = await updateArticle(String(id), { status: 'published' })
+    const res = await updateMyArticleStatus(String(id), 'published')
     if (res.code === 1) {
       ElMessage.success(t('my_articles.publish_success'))
       fetchArticles()
@@ -247,7 +247,7 @@ const handleUnpublishArticle = async (id: number) => {
       }
     )
 
-    const res = await updateArticle(String(id), { status: 'draft' })
+    const res = await updateMyArticleStatus(String(id), 'draft')
     if (res.code === 1) {
       ElMessage.success(t('my_articles.unpublish_success'))
       fetchArticles()
@@ -273,7 +273,7 @@ const handleDeleteArticle = async (article: any) => {
       }
     )
 
-    const res = await deleteArticle(String(article.id))
+    const res = await deleteMyArticle(String(article.id))
     if (res.code === 1) {
       ElMessage.success(t('my_articles.delete_success'))
       fetchArticles()
@@ -345,7 +345,7 @@ onMounted(() => {
 }
 
 .article-item:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--wy-shadow-card-hover);
 }
 
 .article-cover {

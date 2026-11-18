@@ -77,6 +77,63 @@ export const updateArticle = (id: string, data: any) => {
 }
 
 /**
+ * 读取自己文章的详情（前台通道，供编辑页回填）
+ * 供 Author/Contributor 使用：/admin/articles/detail 仅 Admin 可用。
+ * 后端校验只能读取本人文章（Admin 例外）。
+ */
+export const getMyArticleDetail = (id: string) => {
+  return request({
+    url: `/blog/articles/mydetail/${id}`,
+    method: 'GET'
+  })
+}
+
+/**
+ * 更新自己的文章（前台通道）
+ * 供 Author/Contributor 使用：/admin 通道仅 Admin 可用，作者保存会被拦截。
+ * 后端校验只能编辑本人文章。
+ */
+export const updateMyArticle = (id: string, data: any) => {
+  return request({
+    url: `/blog/articles/update/${id}`,
+    method: 'POST',
+    data
+  })
+}
+
+/**
+ * 删除自己的文章（前台通道，作者本人校验）
+ */
+export const deleteMyArticle = (id: string) => {
+  return request({
+    url: `/blog/articles/delete/${id}`,
+    method: 'DELETE'
+  })
+}
+
+/**
+ * 更新自己文章的状态（发布/取消发布，前台通道，作者本人校验）
+ */
+export const updateMyArticleStatus = (id: string, status: 'draft' | 'published' | 'scheduled' | 'deleted') => {
+  return request({
+    url: `/blog/articles/update_status/${id}`,
+    method: 'POST',
+    data: { status }
+  })
+}
+
+/**
+ * 更新自己文章的个人 blog 置顶/排序（仅影响 /blog/:username 展示顺序）
+ */
+export const updateMyArticleBlogMeta = (id: string | number, data: { blog_top?: number; blog_sort?: number }) => {
+  return request({
+    url: `/blog/articles/update_blog_meta/${id}`,
+    method: 'POST',
+    data
+  })
+}
+
+/**
  * 更新文章运营状态
  * @param id 文章ID
  * @param data 文章运营状态数据is_pin,is_recommend,is_featured
@@ -156,6 +213,17 @@ export const deleteArticle = (id: string) => {
  * @param status 新状态
  * @returns
  */
+/**
+ * 更新文章平台排序权重（Admin 后台，仅更新 wb_articles.sort 一个字段）
+ */
+export const updateArticleSort = (id: string | number, sort: number) => {
+  return request({
+    url: `/admin/articles/update/sort/${id}`,
+    method: 'POST',
+    data: { sort }
+  })
+}
+
 export const updateArticleStatus = (id: string, status: 'draft' | 'published' | 'scheduled' | 'deleted') => {
   return request({
     url: `/admin/articles/update/status/${id}`,
@@ -169,13 +237,22 @@ export const updateArticleStatus = (id: string, status: 'draft' | 'published' | 
  * @param username 用户名
  * @param limit 返回数量限制
  * @param status 文章状态过滤
+ * @param offset 偏移量（分页用）
  * @returns
  */
-export const getUserArticles = (username: string, limit?: number, status?: string | null) => {
+export const getUserArticles = (
+  username: string,
+  limit?: number,
+  status?: string | null,
+  offset?: number
+) => {
   const limitNum = limit ?? 10
   let url = `/blog/articles/user/${username}?limit=${limitNum}`
   if (status) {
     url += `&status=${status}`
+  }
+  if (typeof offset === 'number' && offset > 0) {
+    url += `&offset=${offset}`
   }
   return request({
     url,

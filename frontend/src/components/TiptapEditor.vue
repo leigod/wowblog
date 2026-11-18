@@ -1229,15 +1229,15 @@ body {
     cursor: col-resize;
   }
 
-  /* Code and preformatted text styles */
+  /* Code and preformatted text styles
+     内联代码保持行内显示（同 SlashEditor 的说明），块级展示由 pre 承担 */
   code {
     background-color: var(--purple-light);
     border-radius: 0.4rem;
     color: var(--black);
     font-size: 0.85rem;
-    padding: 1.5em 2em;
+    padding: 0.25rem 0.5rem;
     border: 1px solid var(--gray-3);
-    display: block;
   }
 
   pre {
@@ -2072,6 +2072,17 @@ body {
   white-space: pre-wrap;
   outline: none;
   caret-color: var(--tt-cursor-color);
+  /* 内容为空/很少时编辑区保持可点击的最小高度（与 SlashEditor 一致） */
+  min-height: 400px;
+}
+
+/* 沉浸式编辑：聚焦时去掉 refine.css 全局 :focus-visible 蓝色外框。
+   Chrome 对 contenteditable 即使鼠标点击也始终匹配 :focus-visible，
+   全局规则 (0,2,1) 会压过上面的 outline:none (0,2,0)，
+   故用 :focus-visible 提权到 (0,3,0) 显式摘除（组件样式为全局，惠及所有使用方） */
+.tiptap.ProseMirror:focus-visible {
+  outline: none;
+  outline-offset: 0;
 }
 
 .tiptap.ProseMirror {

@@ -5,30 +5,50 @@
       <el-tabs v-model="activeTab">
         <!-- 基础设置 -->
         <el-tab-pane :label="t('admin.settings.tabs.basic')" name="basic">
-          <el-form ref="formRef" :model="formState" :label-width="formLabelConfig.labelWidth"
-            :label-position="formLabelConfig.labelPosition" class="settings-form">
+          <el-form
+            ref="formRef"
+            :model="formState"
+            :label-width="formLabelConfig.labelWidth"
+            :label-position="formLabelConfig.labelPosition"
+            class="settings-form"
+          >
             <el-form-item :label="t('admin.settings.basic.site_title')">
-              <el-input v-model="formState.siteTitle" :placeholder="t('admin.settings.basic.site_title_placeholder')" />
+              <el-input
+                v-model="formState.siteTitle"
+                :placeholder="t('admin.settings.basic.site_title_placeholder')"
+              />
             </el-form-item>
             <el-form-item :label="t('admin.settings.basic.site_logo')">
-              <el-upload class="upload-wrapper" drag :http-request="handleSiteLogoUpload"
-                :before-upload="beforeLogoUpload" :show-file-list="false"
-                accept="image/png,image/jpeg,image/svg+xml,image/vnd.microsoft.icon,image/x-icon">
+              <el-upload
+                class="upload-wrapper"
+                drag
+                :http-request="handleSiteLogoUpload"
+                :before-upload="beforeLogoUpload"
+                :show-file-list="false"
+                accept="image/png,image/jpeg,image/svg+xml,image/vnd.microsoft.icon,image/x-icon"
+              >
                 <template v-if="!isUploading && !formState.siteLogo">
                   <el-icon class="el-icon--upload"><upload-filled /></el-icon>
                   <div class="el-upload__text" v-html="t('admin.settings.upload.drop_text')"></div>
                 </template>
                 <template v-if="isUploading">
                   <div style="text-align: center; padding: 20px 0">
-                    <el-progress :percentage="uploadProgress" :stroke-width="2"
-                      style="width: 200px; margin: 0 auto 10px"></el-progress>
+                    <el-progress
+                      :percentage="uploadProgress"
+                      :stroke-width="2"
+                      style="width: 200px; margin: 0 auto 10px"
+                    ></el-progress>
                     <span>{{ uploadProgress }}%</span>
                   </div>
                 </template>
                 <template v-if="formState.siteLogo">
                   <div class="cover-image-wrapper">
                     <img :src="formState.siteLogo" alt="Site Logo" class="cover-image" />
-                    <el-button :icon="Delete" class="delete-cover-btn" @click="removeImage('siteLogo')" />
+                    <el-button
+                      :icon="Delete"
+                      class="delete-cover-btn"
+                      @click="removeImage('siteLogo')"
+                    />
                   </div>
                 </template>
                 <template #tip>
@@ -37,28 +57,42 @@
               </el-upload>
             </el-form-item>
             <el-form-item :label="t('admin.settings.basic.favicon')">
-              <el-upload class="upload-wrapper" drag :http-request="handleFaviconUpload"
-                :before-upload="beforeFaviconUpload" :show-file-list="false"
-                accept="image/x-icon,image/vnd.microsoft.icon,image/png,image/svg+xml">
+              <el-upload
+                class="upload-wrapper"
+                drag
+                :http-request="handleFaviconUpload"
+                :before-upload="beforeFaviconUpload"
+                :show-file-list="false"
+                accept="image/x-icon,image/vnd.microsoft.icon,image/png,image/svg+xml"
+              >
                 <template v-if="!isUploading && !formState.favicon">
                   <el-icon class="el-icon--upload"><upload-filled /></el-icon>
                   <div class="el-upload__text" v-html="t('admin.settings.upload.drop_text')"></div>
                 </template>
                 <template v-if="isUploading">
                   <div style="text-align: center; padding: 20px 0">
-                    <el-progress :percentage="uploadProgress" :stroke-width="2"
-                      style="width: 200px; margin: 0 auto 10px"></el-progress>
+                    <el-progress
+                      :percentage="uploadProgress"
+                      :stroke-width="2"
+                      style="width: 200px; margin: 0 auto 10px"
+                    ></el-progress>
                     <span>{{ uploadProgress }}%</span>
                   </div>
                 </template>
                 <template v-if="formState.favicon">
                   <div class="cover-image-wrapper">
                     <img :src="formState.favicon" alt="favicon" class="cover-image" />
-                    <el-button :icon="Delete" class="delete-cover-btn" @click="removeImage('favicon')" />
+                    <el-button
+                      :icon="Delete"
+                      class="delete-cover-btn"
+                      @click="removeImage('favicon')"
+                    />
                   </div>
                 </template>
                 <template #tip>
-                  <div class="el-upload__tip">{{ t('admin.settings.basic.upload_favicon_tip') }}</div>
+                  <div class="el-upload__tip">
+                    {{ t('admin.settings.basic.upload_favicon_tip') }}
+                  </div>
                 </template>
               </el-upload>
             </el-form-item>
@@ -84,49 +118,76 @@
               </div>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleSubmit">{{ t('admin.settings.basic.save') }}</el-button>
+              <el-button type="primary" @click="handleSubmit">{{
+                t('admin.settings.basic.save')
+              }}</el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>
 
         <!-- 消息推送配置 -->
         <el-tab-pane :label="t('admin.settings.tabs.message')" name="message">
-          <el-form ref="messageFormRef" :model="messageFormState" :label-width="messageFormLabelConfig.labelWidth"
-            :label-position="messageFormLabelConfig.labelPosition" class="settings-form">
+          <el-form
+            ref="messageFormRef"
+            :model="messageFormState"
+            :label-width="messageFormLabelConfig.labelWidth"
+            :label-position="messageFormLabelConfig.labelPosition"
+            class="settings-form"
+          >
             <el-form-item :label="t('admin.settings.message.push_method')">
               <el-radio-group v-model="messageFormState.pushMethod">
                 <el-radio value="websocket">
                   <div class="radio-option">
-                    <span class="option-title">{{ t('admin.settings.message.method_websocket') }}</span>
-                    <p class="option-desc">{{ t('admin.settings.message.method_websocket_desc') }}</p>
+                    <span class="option-title">{{
+                      t('admin.settings.message.method_websocket')
+                    }}</span>
+                    <p class="option-desc">
+                      {{ t('admin.settings.message.method_websocket_desc') }}
+                    </p>
                   </div>
                 </el-radio>
                 <el-radio value="polling">
                   <div class="radio-option">
-                    <span class="option-title">{{ t('admin.settings.message.method_polling') }}</span>
+                    <span class="option-title">{{
+                      t('admin.settings.message.method_polling')
+                    }}</span>
                     <p class="option-desc">{{ t('admin.settings.message.method_polling_desc') }}</p>
                   </div>
                 </el-radio>
               </el-radio-group>
             </el-form-item>
 
-            <el-form-item v-if="messageFormState.pushMethod === 'polling'"
-              :label="t('admin.settings.message.polling_interval')">
-              <el-input-number v-model="messageFormState.pollingInterval" :min="10" :max="300" :step="10"
-                controls-position="right" />
+            <el-form-item
+              v-if="messageFormState.pushMethod === 'polling'"
+              :label="t('admin.settings.message.polling_interval')"
+            >
+              <el-input-number
+                v-model="messageFormState.pollingInterval"
+                :min="10"
+                :max="300"
+                :step="10"
+                controls-position="right"
+              />
               <span class="unit-text">{{ t('admin.settings.message.polling_interval_unit') }}</span>
               <p class="form-hint">{{ t('admin.settings.message.polling_interval_hint') }}</p>
             </el-form-item>
 
             <el-form-item>
-              <el-button type="primary" @click="handleMessageSubmit">{{ t('admin.settings.message.save_message')
-                }}</el-button>
-              <el-button v-if="messageFormState.pushMethod === 'websocket'" @click="testWebSocketConnection"
-                :loading="isTesting">
+              <el-button type="primary" @click="handleMessageSubmit">{{
+                t('admin.settings.message.save_message')
+              }}</el-button>
+              <el-button
+                v-if="messageFormState.pushMethod === 'websocket'"
+                @click="testWebSocketConnection"
+                :loading="isTesting"
+              >
                 {{ t('admin.settings.message.test_connection') }}
               </el-button>
-              <el-button v-if="isConnected && messageFormState.pushMethod === 'websocket'" @click="sendTestMessage"
-                type="success">
+              <el-button
+                v-if="isConnected && messageFormState.pushMethod === 'websocket'"
+                @click="sendTestMessage"
+                type="success"
+              >
                 {{ t('admin.settings.message.send_test_message') }}
               </el-button>
             </el-form-item>
@@ -136,7 +197,11 @@
             <div class="connection-status">
               <h4>{{ t('admin.settings.message.connection_status') }}</h4>
               <el-tag :type="isConnected ? 'success' : 'info'">
-                {{ isConnected ? t('admin.settings.message.connected') : t('admin.settings.message.disconnected') }}
+                {{
+                  isConnected
+                    ? t('admin.settings.message.connected')
+                    : t('admin.settings.message.disconnected')
+                }}
               </el-tag>
               <p class="form-hint" v-if="messageFormState.pushMethod === 'websocket'">
                 {{ t('admin.settings.message.connection_hint') }}
@@ -156,9 +221,22 @@
               <p class="section-desc">{{ t('admin.settings.notification.section_desc') }}</p>
             </div>
 
-            <el-form ref="notificationFormRef" :model="notificationFormState"
+            <el-form
+              ref="notificationFormRef"
+              :model="notificationFormState"
               :label-width="notificationFormLabelConfig.labelWidth"
-              :label-position="notificationFormLabelConfig.labelPosition" class="settings-form">
+              :label-position="notificationFormLabelConfig.labelPosition"
+              class="settings-form"
+            >
+              <!-- 文章审核总开关（控制 blog 工作台的发布状态选择） -->
+              <el-form-item :label="t('admin.settings.notification.enable_article_review')">
+                <div class="form-item">
+                  <el-switch v-model="notificationFormState.articleReviewEnabled" />
+                  <p class="form-hint">
+                    {{ t('admin.settings.notification.enable_article_review_hint') }}
+                  </p>
+                </div>
+              </el-form-item>
               <el-form-item :label="t('admin.settings.notification.enable_review')">
                 <div class="form-item">
                   <el-switch v-model="notificationFormState.enableArticleReviewNotification" />
@@ -168,15 +246,20 @@
 
               <el-form-item :label="t('admin.settings.notification.notify_roles')">
                 <el-checkbox-group v-model="notificationFormState.notifyRoles">
-                  <el-checkbox value="Admin">{{ t('admin.settings.notification.role_admin') }}</el-checkbox>
-                  <el-checkbox value="Editor">{{ t('admin.settings.notification.role_editor') }}</el-checkbox>
+                  <el-checkbox value="Admin">{{
+                    t('admin.settings.notification.role_admin')
+                  }}</el-checkbox>
+                  <el-checkbox value="Editor">{{
+                    t('admin.settings.notification.role_editor')
+                  }}</el-checkbox>
                 </el-checkbox-group>
                 <p class="form-hint">{{ t('admin.settings.notification.notify_roles_hint') }}</p>
               </el-form-item>
 
               <el-form-item>
-                <el-button type="primary" @click="handleNotificationSubmit">{{ t('admin.settings.notification.save')
-                  }}</el-button>
+                <el-button type="primary" @click="handleNotificationSubmit">{{
+                  t('admin.settings.notification.save')
+                }}</el-button>
               </el-form-item>
             </el-form>
 
@@ -199,20 +282,46 @@
 
             <!-- 桌面端表格 -->
             <el-table v-if="!isMobile" :data="emailSettingsList" border style="margin-top: 20px">
-              <el-table-column prop="provider" :label="t('admin.settings.email.table.provider')" width="120">
+              <el-table-column
+                prop="provider"
+                :label="t('admin.settings.email.table.provider')"
+                width="120"
+              >
                 <template #default="{ row }">
                   <el-tag>{{ t('admin.settings.providers.' + row.provider.toLowerCase()) }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="smtp_host" :label="t('admin.settings.email.table.smtp_host')" width="200" />
-              <el-table-column prop="smtp_port" :label="t('admin.settings.email.table.port')" width="80" />
-              <el-table-column prop="from_email" :label="t('admin.settings.email.table.from_email')" width="180" />
-              <el-table-column prop="from_name" :label="t('admin.settings.email.table.from_name')" width="120" />
-              <el-table-column prop="is_active" :label="t('admin.settings.email.table.status')" width="80">
+              <el-table-column
+                prop="smtp_host"
+                :label="t('admin.settings.email.table.smtp_host')"
+                width="200"
+              />
+              <el-table-column
+                prop="smtp_port"
+                :label="t('admin.settings.email.table.port')"
+                width="80"
+              />
+              <el-table-column
+                prop="from_email"
+                :label="t('admin.settings.email.table.from_email')"
+                width="180"
+              />
+              <el-table-column
+                prop="from_name"
+                :label="t('admin.settings.email.table.from_name')"
+                width="120"
+              />
+              <el-table-column
+                prop="is_active"
+                :label="t('admin.settings.email.table.status')"
+                width="80"
+              >
                 <template #default="{ row }">
                   <el-tag :type="row.is_active ? 'success' : 'info'">
-                    {{ row.is_active ? t('admin.settings.email.table.enabled') :
-                      t('admin.settings.email.table.disabled')
+                    {{
+                      row.is_active
+                        ? t('admin.settings.email.table.enabled')
+                        : t('admin.settings.email.table.disabled')
                     }}
                   </el-tag>
                 </template>
@@ -220,16 +329,21 @@
               <el-table-column :label="t('admin.settings.email.table.config_status')" width="100">
                 <template #default="{ row }">
                   <el-tag :type="row.has_password ? 'success' : 'warning'">
-                    {{ row.has_password ? t('admin.settings.email.table.configured') :
-                      t('admin.settings.email.table.not_configured') }}
+                    {{
+                      row.has_password
+                        ? t('admin.settings.email.table.configured')
+                        : t('admin.settings.email.table.not_configured')
+                    }}
                   </el-tag>
                 </template>
               </el-table-column>
               <el-table-column :label="t('admin.settings.email.table.actions')" width="100">
                 <template #default="{ row }">
                   <el-button size="small" type="primary" @click="handleEditEmailSettings(row)">
-                    {{ row.has_password ? t('admin.settings.email.table.edit') :
-                      t('admin.settings.email.table.configure')
+                    {{
+                      row.has_password
+                        ? t('admin.settings.email.table.edit')
+                        : t('admin.settings.email.table.configure')
                     }}
                   </el-button>
                 </template>
@@ -238,12 +352,19 @@
 
             <!-- 移动端卡片 -->
             <div v-else class="email-settings-cards">
-              <el-card v-for="row in emailSettingsList" :key="row.id" class="email-setting-card" shadow="hover">
+              <el-card
+                v-for="row in emailSettingsList"
+                :key="row.id"
+                class="email-setting-card"
+                shadow="hover"
+              >
                 <div class="card-header">
                   <el-tag>{{ t('admin.settings.providers.' + row.provider.toLowerCase()) }}</el-tag>
                   <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
-                    {{ row.is_active ? t('admin.settings.email.table.enabled') :
-                      t('admin.settings.email.table.disabled')
+                    {{
+                      row.is_active
+                        ? t('admin.settings.email.table.enabled')
+                        : t('admin.settings.email.table.disabled')
                     }}
                   </el-tag>
                 </div>
@@ -267,22 +388,29 @@
                   <div class="info-row">
                     <span class="label">{{ t('admin.settings.email.table.config_status') }}:</span>
                     <el-tag :type="row.has_password ? 'success' : 'warning'" size="small">
-                      {{ row.has_password ? t('admin.settings.email.table.configured') :
-                        t('admin.settings.email.table.not_configured') }}
+                      {{
+                        row.has_password
+                          ? t('admin.settings.email.table.configured')
+                          : t('admin.settings.email.table.not_configured')
+                      }}
                     </el-tag>
                   </div>
                 </div>
                 <div class="card-footer">
                   <el-button type="primary" size="small" @click="handleEditEmailSettings(row)">
-                    {{ row.has_password ? t('admin.settings.email.table.edit') :
-                      t('admin.settings.email.table.configure')
+                    {{
+                      row.has_password
+                        ? t('admin.settings.email.table.edit')
+                        : t('admin.settings.email.table.configure')
                     }}
                   </el-button>
                 </div>
               </el-card>
 
-              <el-empty v-if="!emailSettingsLoading && emailSettingsList.length === 0"
-                :description="t('admin.settings.email.empty')" />
+              <el-empty
+                v-if="!emailSettingsLoading && emailSettingsList.length === 0"
+                :description="t('admin.settings.email.empty')"
+              />
             </div>
           </div>
         </el-tab-pane>
@@ -295,9 +423,13 @@
               <p class="section-desc">{{ t('admin.settings.social.section_desc') }}</p>
             </div>
 
-            <el-form ref="socialFormRef" :model="socialFormState"
+            <el-form
+              ref="socialFormRef"
+              :model="socialFormState"
               :label-width="socialFormLabelConfig.labelWidth"
-              :label-position="socialFormLabelConfig.labelPosition" class="settings-form">
+              :label-position="socialFormLabelConfig.labelPosition"
+              class="settings-form"
+            >
               <el-form-item :label="t('admin.settings.social.enable_oauth')">
                 <div class="form-item">
                   <el-switch v-model="socialFormState.oauthEnabled" />
@@ -318,8 +450,9 @@
               </el-form-item>
 
               <el-form-item>
-                <el-button type="primary" @click="handleSocialSubmit">{{ t('admin.settings.social.save')
-                  }}</el-button>
+                <el-button type="primary" @click="handleSocialSubmit">{{
+                  t('admin.settings.social.save')
+                }}</el-button>
               </el-form-item>
             </el-form>
 
@@ -335,11 +468,20 @@
     </el-card>
 
     <!-- 邮件配置表单对话框 -->
-    <el-dialog v-model="emailFormVisible"
-      :title="editingEmailSettings ? t('admin.settings.email.dialog.edit_title') : t('admin.settings.email.dialog.add_title')"
-      :width="isMobile ? '95%' : '600px'">
-      <el-form :model="emailForm" :label-width="emailFormLabelConfig.labelWidth"
-        :label-position="emailFormLabelConfig.labelPosition">
+    <el-dialog
+      v-model="emailFormVisible"
+      :title="
+        editingEmailSettings
+          ? t('admin.settings.email.dialog.edit_title')
+          : t('admin.settings.email.dialog.add_title')
+      "
+      :width="isMobile ? '95%' : '600px'"
+    >
+      <el-form
+        :model="emailForm"
+        :label-width="emailFormLabelConfig.labelWidth"
+        :label-position="emailFormLabelConfig.labelPosition"
+      >
         <el-form-item :label="t('admin.settings.email.dialog.provider')">
           <el-select v-model="emailForm.provider" @change="handleProviderChange">
             <el-option :label="t('admin.settings.providers.gmail')" value="gmail" />
@@ -350,31 +492,46 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('admin.settings.email.dialog.smtp_host')">
-          <el-input v-model="emailForm.smtp_host"
-            :placeholder="t('admin.settings.email.dialog.smtp_host_placeholder')" />
+          <el-input
+            v-model="emailForm.smtp_host"
+            :placeholder="t('admin.settings.email.dialog.smtp_host_placeholder')"
+          />
         </el-form-item>
         <el-form-item :label="t('admin.settings.email.dialog.port')">
           <el-input-number v-model="emailForm.smtp_port" :min="1" :max="65535" />
         </el-form-item>
         <el-form-item :label="t('admin.settings.email.dialog.smtp_user')">
-          <el-input v-model="emailForm.smtp_user"
-            :placeholder="t('admin.settings.email.dialog.smtp_user_placeholder')" />
+          <el-input
+            v-model="emailForm.smtp_user"
+            :placeholder="t('admin.settings.email.dialog.smtp_user_placeholder')"
+          />
         </el-form-item>
         <el-form-item :label="t('admin.settings.email.dialog.smtp_pass')">
-          <el-input v-model="emailForm.smtp_pass" type="password"
-            :placeholder="editingEmailSettings?.has_password ? t('admin.settings.email.dialog.smtp_pass_edit_placeholder') : t('admin.settings.email.dialog.smtp_pass_placeholder')"
-            show-password />
-          <p v-if="editingEmailSettings?.has_password" class="form-hint">{{
-            t('admin.settings.email.dialog.smtp_pass_hint')
-            }}</p>
+          <el-input
+            v-model="emailForm.smtp_pass"
+            type="password"
+            :placeholder="
+              editingEmailSettings?.has_password
+                ? t('admin.settings.email.dialog.smtp_pass_edit_placeholder')
+                : t('admin.settings.email.dialog.smtp_pass_placeholder')
+            "
+            show-password
+          />
+          <p v-if="editingEmailSettings?.has_password" class="form-hint">
+            {{ t('admin.settings.email.dialog.smtp_pass_hint') }}
+          </p>
         </el-form-item>
         <el-form-item :label="t('admin.settings.email.dialog.from_email')">
-          <el-input v-model="emailForm.from_email"
-            :placeholder="t('admin.settings.email.dialog.from_email_placeholder')" />
+          <el-input
+            v-model="emailForm.from_email"
+            :placeholder="t('admin.settings.email.dialog.from_email_placeholder')"
+          />
         </el-form-item>
         <el-form-item :label="t('admin.settings.email.dialog.from_name')">
-          <el-input v-model="emailForm.from_name"
-            :placeholder="t('admin.settings.email.dialog.from_name_placeholder')" />
+          <el-input
+            v-model="emailForm.from_name"
+            :placeholder="t('admin.settings.email.dialog.from_name_placeholder')"
+          />
         </el-form-item>
         <el-form-item :label="t('admin.settings.email.dialog.use_tls')">
           <el-switch v-model="emailForm.use_tls" />
@@ -384,9 +541,12 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="emailFormVisible = false">{{ t('admin.settings.email.dialog.btn_cancel') }}</el-button>
-        <el-button type="primary" @click="handleEmailFormSubmit">{{ t('admin.settings.email.dialog.btn_confirm')
-          }}</el-button>
+        <el-button @click="emailFormVisible = false">{{
+          t('admin.settings.email.dialog.btn_cancel')
+        }}</el-button>
+        <el-button type="primary" @click="handleEmailFormSubmit">{{
+          t('admin.settings.email.dialog.btn_confirm')
+        }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -458,6 +618,7 @@ const messageFormState = reactive({
 
 // 文章审核通知配置状态
 const notificationFormState = reactive({
+  articleReviewEnabled: true,
   enableArticleReviewNotification: false,
   notifyRoles: [] as string[]
 })
@@ -515,7 +676,7 @@ const testWebSocketConnection = async () => {
     wsService.disconnect()
 
     // 等待一秒确保断开完成
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     // 注册事件监听（一次性）
     const onConnected = () => {
@@ -623,8 +784,12 @@ onMounted(async () => {
       }
 
       // 加载文章审核通知配置
+      if (res.data.article_review_enabled !== undefined) {
+        notificationFormState.articleReviewEnabled = res.data.article_review_enabled === 1
+      }
       if (res.data.enable_article_review_notification !== undefined) {
-        notificationFormState.enableArticleReviewNotification = res.data.enable_article_review_notification === 1
+        notificationFormState.enableArticleReviewNotification =
+          res.data.enable_article_review_notification === 1
       }
       if (res.data.article_review_notification_roles) {
         try {
@@ -713,7 +878,10 @@ const handleMessageSubmit = async () => {
 const handleNotificationSubmit = async () => {
   try {
     const data = {
-      enable_article_review_notification: notificationFormState.enableArticleReviewNotification ? 1 : 0,
+      article_review_enabled: notificationFormState.articleReviewEnabled ? 1 : 0,
+      enable_article_review_notification: notificationFormState.enableArticleReviewNotification
+        ? 1
+        : 0,
       article_review_notification_roles: JSON.stringify(notificationFormState.notifyRoles)
     }
     const res = await updateSiteConfig(data)
@@ -780,12 +948,7 @@ const beforeLogoUpload = (file: File) => {
 
 // 上传前验证 - Favicon（主要是 ICO）
 const beforeFaviconUpload = (file: File) => {
-  const validTypes = [
-    'image/x-icon',
-    'image/vnd.microsoft.icon',
-    'image/png',
-    'image/svg+xml'
-  ]
+  const validTypes = ['image/x-icon', 'image/vnd.microsoft.icon', 'image/png', 'image/svg+xml']
   const isValidType = validTypes.includes(file.type)
   const isLt1M = file.size / 1024 / 1024 < 1
 
@@ -909,9 +1072,10 @@ const handleEmailFormSubmit = async () => {
   try {
     // 如果密码为空且原配置有密码，则不更新密码字段
     const { smtp_pass, ...submitDataBase } = emailForm.value
-    const submitData = (!smtp_pass && editingEmailSettings.value.has_password)
-      ? submitDataBase
-      : { ...emailForm.value }
+    const submitData =
+      !smtp_pass && editingEmailSettings.value.has_password
+        ? submitDataBase
+        : { ...emailForm.value }
 
     const res = await updateEmailSettings(editingEmailSettings.value.id, submitData)
     if (res.code === 1) {

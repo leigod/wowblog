@@ -13,6 +13,12 @@ import traceback
 import os
 import logging
 
+from dotenv import load_dotenv
+
+# 必须 reload .env：本模块可能在 database.py（其内才调用 load_dotenv）之前被导入，
+# 否则 DEBUG 环境变量尚未加载，DEBUG_MODE 恒为 False，开发期 500 不返回堆栈
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 # 生产环境不返回堆栈跟踪

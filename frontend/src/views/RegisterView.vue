@@ -2,6 +2,11 @@
   <div class="register-container">
     <el-card class="register-card">
       <div class="register-header">
+        <!-- 品牌 favicon：点击回网站首页 -->
+        <div class="brand-mark" @click="$router.push('/')">
+          <img v-if="appStore.site_favicon" :src="appStore.site_favicon" alt="首页" class="brand-logo" :title="appStore.site_title" />
+          <template v-else>{{ (appStore.site_title || $t('register.title') || 'W').trim().charAt(0).toUpperCase() }}</template>
+        </div>
         <h2>{{ $t('register.title') }}</h2>
         <p>{{ $t('register.subtitle') }}</p>
       </div>
@@ -266,7 +271,7 @@ const navigateToLogin = () => {
 .register-card {
   width: 500px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--wy-shadow-card);
 }
 
 .register-header {
@@ -274,13 +279,38 @@ const navigateToLogin = () => {
   margin-bottom: 24px;
 }
 
+/* 品牌标记：与登录页同款，logo 优先、回退站点名首字 */
+.brand-mark {
+  cursor: pointer;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: var(--wy-radius-md, 8px);
+  background: transparent;
+  color: var(--wy-brand, #2f5fd0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+  user-select: none;
+}
+
+.brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .register-header h2 {
   margin-bottom: 8px;
-  color: #1d2129;
+  color: var(--wy-text-primary);
 }
 
 .register-header p {
-  color: #86909c;
+  color: var(--wy-text-tertiary);
   font-size: 14px;
 }
 
@@ -298,7 +328,7 @@ const navigateToLogin = () => {
   text-align: center;
   margin-top: 16px;
   font-size: 14px;
-  color: #86909c;
+  color: var(--wy-text-tertiary);
 }
 
 .avatar-uploader {
@@ -308,7 +338,7 @@ const navigateToLogin = () => {
 }
 
 .avatar-uploader .el-upload {
-  border: 1px dashed #d9d9d9;
+  border: 1px dashed var(--wy-border-strong);
   border-radius: 6px;
   cursor: pointer;
   position: relative;
@@ -318,19 +348,19 @@ const navigateToLogin = () => {
 }
 
 .avatar-uploader .el-upload:hover {
-  border-color: #409eff;
+  border-color: var(--wy-brand);
 }
 
 .avatar-uploader-icon {
   font-size: 28px;
-  color: #8c939d;
+  color: var(--wy-text-tertiary);
   width: 100px;
   height: 100px;
   line-height: 100px;
   text-align: center;
 }
 .avatar-uploader-icon:hover {
-  color: #409eff;
+  color: var(--wy-brand);
 }
 
 .avatar {
@@ -343,6 +373,6 @@ const navigateToLogin = () => {
   display: inline-block;
   margin-top: 10px;
   font-size: 12px;
-  color: #86909c;
+  color: var(--wy-text-tertiary);
 }
 </style>
