@@ -334,7 +334,10 @@ const handleSubmit = async () => {
             : categoryForm.articleSort === 'oldest'
               ? 'pubtime asc'
               : 'views desc',
-        pid: categoryForm.parentId === '0' ? 0 : categoryForm.parentId
+        // 后端 pid 是 int，空字符串会触发 422；未选父分类一律传 0
+        pid: !categoryForm.parentId || categoryForm.parentId === '0'
+          ? 0
+          : Number(categoryForm.parentId)
       }
       const res = await updateCategory(route.params.id as string, reqData)
       console.log(res)

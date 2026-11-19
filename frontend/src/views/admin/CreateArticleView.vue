@@ -471,7 +471,7 @@ import { getSeriesList } from '@/api/services/series'
 import { getUserMe } from '@/api/services/user'
 import { searchAuthors, searchCoAuthors } from '@/api/services/member'
 import { searchTagsFrontend } from '@/api/services/tags'
-import { addArticle, createArticle } from '@/api/services/articles'
+import { addArticle, createArticle, updateArticle, updateMyArticle } from '@/api/services/articles'
 import { useAppStore } from '@/stores/app'
 import { useAutoTextarea } from '@/composables/useAutoTextarea'
 // Creator 模式（/creator/articles/create）：Author 发布时选自己 blog 的分类/系列，
@@ -918,6 +918,8 @@ const isAdmin = computed(() => appStore.userRole === 'Admin')
 // Creator 模式：/creator/articles/* 下的 Author 发布流程
 const route = useRoute()
 const isCreatorMode = computed(() => route.path.startsWith('/creator'))
+// 本页首次发布成功后记住新文章 ID；之后补封面等再次提交走更新，避免重复建文
+const currentArticleId = ref<string | number | null>(null)
 // 站点文章审核开关：开启时 creator 模式固定草稿（状态选择隐藏）
 const reviewEnabled = computed(() => appStore.article_review_enabled)
 // Author 自己 blog 的分类/系列（creator 模式下显示，均非必填）
@@ -989,12 +991,21 @@ const handlePublishArticle = async () => {
       seo_desc: publishForm.seoDescription
     }
 
-    // 根据角色选择不同的API
-    const apiCall = userRole === 'Admin' ? addArticle(articleData) : createArticle(articleData)
+    // 同一页面再次发布（例如首次发布后补封面）必须走更新，否则会新建出第二篇文章
+    const articleId = currentArticleId.value
+    const apiCall = articleId != null
+      ? (userRole === 'Admin'
+          ? updateArticle(String(articleId), articleData)
+          : updateMyArticle(String(articleId), articleData))
+      : (userRole === 'Admin' ? addArticle(articleData) : createArticle(articleData))
 
     await apiCall
       .then((res: any) => {
         if (res.code === 1) {
+          // 首次发布记住后端返回的新文章 ID，后续提交复用
+          if (articleId == null && res.data?.id != null) {
+            currentArticleId.value = res.data.id
+          }
           ElMessage.success(t('article_editor.published_success'))
           publishDrawerVisible.value = false
         }

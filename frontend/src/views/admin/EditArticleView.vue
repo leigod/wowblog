@@ -1255,7 +1255,7 @@ const handlePublishArticle = async () => {
     await updateCall
       .then((res: any) => {
         if (res.code === 1) {
-          ElMessage.success('Article published successfully')
+          ElMessage.success(t('article_editor.published_success'))
           publishDrawerVisible.value = false
         }
       })
