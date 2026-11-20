@@ -51,12 +51,13 @@ if not SECRET_KEY:
 
 ALGORITHM = "HS256"
 
-# Token有效期：30分钟（生产环境推荐）
-# 从环境变量读取，默认30分钟
+# Token有效期：8小时
+# 从环境变量读取，默认480分钟。30分钟过短，长文编辑/图片上传过程中频繁过期，
+# 配合前端无自动续期会导致"编辑中被踢出、重新登录又被并发旧请求清掉"的死循环。
 try:
-    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', '30'))
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', '480'))
 except ValueError:
-    ACCESS_TOKEN_EXPIRE_MINUTES = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES = 480
 
 # 登录用户的token
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")

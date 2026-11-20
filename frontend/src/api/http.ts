@@ -89,10 +89,26 @@ let isGettingTempToken = false
 let retryRequests: Array<{ resolve: (token: string) => void; reject: (error: any) => void }> = []
 // 临时token API端点，避免循环
 const TEMP_TOKEN_URL = '/get_temp_token'
-// 需要管理员权限的API列表，不使用临时token重试
+// 需要管理员权限的API列表：仅在"未登录"分支用于跳过临时token重试。
+// 已登录用户 token 过期一律走登出，不再因命中此列表而静默放过（旧逻辑会让坏 token 残留 sessionStorage）
 const ADMIN_APIs = ['/admin/', '/user/', '/users/']
-// 前端认证相关API，401时直接失败，不重试
+// 前端认证相关API，401 时直接失败、绝不触发登出
+// （否则登录页输错一次密码就会把已登录态清掉）
 const AUTH_APIs = ['/auth/', '/login', '/notifications/unread-count']
+
+// 401 登出防抖锁：一旦开始登出流程，同批并发的其它 401 不再重复清理/跳转
+let isRedirectingToLogin = false
+
+// 无条件清理两端所有认证态（store + localStorage + sessionStorage）
+const clearAllAuthState = (appStore: any) => {
+  appStore.clearUserInfo()
+  // 兜底：即便 store 的清理逻辑变动，也确保两端 token 不残留
+  const keys = ['access_token', 'userRole', 'userInfo', 'is_logged_in', 'temp_token', 'temp_token_expire']
+  keys.forEach(k => {
+    localStorage.removeItem(k)
+    sessionStorage.removeItem(k)
+  })
+}
 
 http.interceptors.response.use(
   (response: AxiosResponse) => {
@@ -123,99 +139,109 @@ http.interceptors.response.use(
 
       switch (error.response.status) {
         case 401: {
-          // 如果是获取临时token的请求本身返回401，直接失败，避免循环
+          // 1) 获取临时token的请求本身返回401，直接失败，避免递归
           if (originalRequest.url?.includes(TEMP_TOKEN_URL)) {
             console.error('获取临时token失败，API返回401')
             return Promise.reject(error)
           }
 
-          // 检查是否是需要管理员权限的API
-          const isAdminAPI = ADMIN_APIs.some(api => originalRequest.url?.includes(api))
-          if (isAdminAPI) {
-            console.log('管理员API，不使用临时token重试:', originalRequest.url)
-            // 管理员API直接返回错误，不尝试获取临时token
-            return Promise.reject(error)
-          }
-
-          // 检查是否是前端认证相关API
+          // 2) 认证相关接口（登录/注册等）返回401 = 账号密码错误，不是会话过期。
+          //    绝不能触发登出，否则在登录页输错密码会把刚建立的登录态清掉。
           const isAuthAPI = AUTH_APIs.some(api => originalRequest.url?.includes(api))
           if (isAuthAPI) {
-            // 前端认证API直接返回错误，不尝试获取临时token
             return Promise.reject(error)
           }
 
-          // 检查用户是否已登录（使用独立的登录状态标志）
-          const isLoggedIn = localStorage.getItem('is_logged_in') === 'true'
-
-          if (!isLoggedIn) {
-            // 未登录用户，尝试获取临时token
-            if (!isGettingTempToken) {
-              isGettingTempToken = true
-
-              try {
-                const tempToken = await appStore.getTempToken()
-                isGettingTempToken = false
-
-                if (tempToken) {
-                  console.log('获取临时token成功，重试请求:', originalRequest.url)
-
-                  // 获取临时token成功，重试所有等待的请求
-                  retryRequests.forEach(({ resolve }) => resolve(tempToken))
-                  retryRequests = []
-
-                  // 重试当前请求
-                  originalRequest.headers = originalRequest.headers || {}
-                  originalRequest.headers['Authorization'] = `Bearer ${tempToken}`
-                  return http(originalRequest)
-                }
-              } catch (tokenError) {
-                console.error('获取临时token失败:', tokenError)
-                isGettingTempToken = false
-
-                // 获取临时token失败，拒绝所有等待的请求
-                retryRequests.forEach(({ reject }) => {
-                  try {
-                    reject(tokenError)
-                  } catch (e) {
-                    console.error('重试请求失败:', e)
-                  }
-                })
-                retryRequests = []
-                // 对于未登录用户，获取临时token失败时直接拒绝请求，不跳转登录页
-                return Promise.reject(tokenError)
-              }
-            } else {
-              // 如果正在获取临时token，将当前请求加入等待队列
-              console.log('正在获取临时token，将当前请求加入等待队列')
-              return new Promise((resolve, reject) => {
-                const retryCallback = (token: string) => {
-                  originalRequest.headers = originalRequest.headers || {}
-                  originalRequest.headers['Authorization'] = `Bearer ${token}`
-                  http(originalRequest).then(resolve).catch(reject)
-                }
-                const rejectCallback = (err: any) => {
-                  reject(err)
-                }
-                retryRequests.push({ resolve: retryCallback, reject: rejectCallback })
-              })
-            }
+          // 3) 登出防抖：本轮 401 已经开始走登出流程，后续并发请求一律静默拒绝。
+          //    这是"重新登录后又被踢回、必须关页"的核心——晚到的旧 401 会看到
+          //    is_logged_in 已被新登录置回 true，若不拦截就会再次 clearUserInfo。
+          if (isRedirectingToLogin) {
+            return Promise.reject(error)
           }
 
-          // 已登录用户 token过期，跳转到登录页
-          ElMessage.error('登录已过期，请重新登录')
-          appStore.clearUserInfo()
-          // 使用replace代替push，防止用户返回到需要授权的页面
-          // 添加setTimeout确保在清除用户信息后执行跳转
-          setTimeout(() => {
-            // 强制刷新路由，确保页面正确更新
-            router.replace('/login').catch((error) => {
-              console.log('路由跳转错误:', error)
-              // 极端情况下强制刷新页面
-              if (window.location.pathname !== '/login') {
-                window.location.href = '/login'
-              }
+          // 4) 判断是否已登录（独立的登录状态标志）
+          const isLoggedIn = localStorage.getItem('is_logged_in') === 'true'
+
+          if (isLoggedIn) {
+            // 已登录用户 token 过期：清理 + 跳转。
+            // 注意这里不再按 ADMIN_APIs 分流——头像上传(/user/avatar)、
+            // 取用户信息(/users/me)等接口过期时必须同样清理，否则坏 token 残留 sessionStorage。
+            isRedirectingToLogin = true
+            ElMessage.error('登录已过期，请重新登录')
+            clearAllAuthState(appStore)
+
+            // 等待重试队列中的请求全部拒绝，避免旧请求在跳登录后用临时token重试产生连锁
+            retryRequests.forEach(({ reject }) => {
+              try { reject(error) } catch (e) { console.error('重试请求失败:', e) }
             })
-          }, 0)
+            retryRequests = []
+            isGettingTempToken = false
+
+            // 解锁时机：跳到登录页后再放开。用 replace 防止回退到需授权页面。
+            setTimeout(() => {
+              router.replace('/login').catch((err) => {
+                console.log('路由跳转错误:', err)
+                if (window.location.pathname !== '/login') {
+                  window.location.href = '/login'
+                }
+              }).finally(() => {
+                // 给一点缓冲再解锁，确保本轮并发 401 都已到达并被上面的锁拦掉
+                setTimeout(() => { isRedirectingToLogin = false }, 300)
+              })
+            }, 0)
+            return Promise.reject(error)
+          }
+
+          // 5) 未登录用户：管理类接口不做临时token重试（无意义），直接拒绝
+          const isAdminAPI = ADMIN_APIs.some(api => originalRequest.url?.includes(api))
+          if (isAdminAPI) {
+            console.log('未登录且为管理员API，不使用临时token重试:', originalRequest.url)
+            return Promise.reject(error)
+          }
+
+          // 6) 未登录用户访问公共接口，尝试临时token（原逻辑保留）
+          if (!isGettingTempToken) {
+            isGettingTempToken = true
+
+            try {
+              const tempToken = await appStore.getTempToken()
+              isGettingTempToken = false
+
+              if (tempToken) {
+                console.log('获取临时token成功，重试请求:', originalRequest.url)
+
+                retryRequests.forEach(({ resolve }) => resolve(tempToken))
+                retryRequests = []
+
+                originalRequest.headers = originalRequest.headers || {}
+                originalRequest.headers['Authorization'] = `Bearer ${tempToken}`
+                return http(originalRequest)
+              }
+            } catch (tokenError) {
+              console.error('获取临时token失败:', tokenError)
+              isGettingTempToken = false
+
+              retryRequests.forEach(({ reject }) => {
+                try { reject(tokenError) } catch (e) { console.error('重试请求失败:', e) }
+              })
+              retryRequests = []
+              // 未登录用户获取临时token失败时直接拒绝，不跳转登录页
+              return Promise.reject(tokenError)
+            }
+          } else {
+            console.log('正在获取临时token，将当前请求加入等待队列')
+            return new Promise((resolve, reject) => {
+              const retryCallback = (token: string) => {
+                originalRequest.headers = originalRequest.headers || {}
+                originalRequest.headers['Authorization'] = `Bearer ${token}`
+                http(originalRequest).then(resolve).catch(reject)
+              }
+              const rejectCallback = (err: any) => {
+                reject(err)
+              }
+              retryRequests.push({ resolve: retryCallback, reject: rejectCallback })
+            })
+          }
           break
         }
         case 403:
