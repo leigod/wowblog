@@ -119,13 +119,18 @@
             </el-form-item>
             <el-form-item :label="t('admin.settings.basic.watermark')">
               <div class="form-item">
-                <el-switch v-model="formState.watermarkEnabled" />
-                <template v-if="formState.watermarkEnabled">
-                  <el-radio-group v-model="formState.watermarkMode" size="small" class="watermark-mode-group">
+                <div class="watermark-row">
+                  <el-switch v-model="formState.watermarkEnabled" />
+                  <el-radio-group
+                    v-if="formState.watermarkEnabled"
+                    v-model="formState.watermarkMode"
+                    size="small"
+                    class="watermark-mode-group"
+                  >
                     <el-radio-button value="corner">{{ t('admin.settings.basic.watermark_corner') }}</el-radio-button>
                     <el-radio-button value="tile">{{ t('admin.settings.basic.watermark_tile') }}</el-radio-button>
                   </el-radio-group>
-                </template>
+                </div>
                 <p class="form-hint">{{ t('admin.settings.basic.watermark_hint') }}</p>
               </div>
             </el-form-item>
@@ -1149,6 +1154,15 @@ watch(activeTab, (newTab) => {
 .form-item {
   display: flex;
   flex-direction: column;
+}
+
+/* 水印开关与模式按钮同行靠左，不折行 */
+.watermark-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .form-hint {
