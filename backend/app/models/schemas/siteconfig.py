@@ -41,3 +41,7 @@ class SiteConfig(BaseModel):
 
     # 内容安全配置
     sensitive_words_enabled: Literal[0, 1] | None = None
+
+    # 图片水印配置（全站默认；Author 可在个人 blog 配置覆盖）
+    watermark_enabled: Literal[0, 1] = 0
+    watermark_mode: Literal['corner', 'tile'] = 'corner'

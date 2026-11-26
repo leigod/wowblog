@@ -39,6 +39,13 @@ export default defineConfig(({ command }) => ({
         // WebSocket 支持
         ws: true
       },
+      '/static': {
+        // 上传文件（编辑器图片等）以相对路径 /static/... 引用：
+        // 生产环境与前端同域（Apache 反代后端），开发环境需代理到后端，
+        // 否则 dev server（5173）下编辑器内图片 404
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
       '/ws': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,

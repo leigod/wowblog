@@ -283,6 +283,7 @@ const handleCustomUpload = async (options: any) => {
   try {
     const res = await uploadFile({
       file: options.file,
+      purpose: 'cover',
       onProgress: (progressEvent) => {
         if (progressEvent.total > 0) {
           const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100)

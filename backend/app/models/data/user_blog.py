@@ -29,6 +29,9 @@ class UserBlogConfig(Base):
     social_links = Column(JSON, comment='社媒账号列表：[{"platform":"github","url":"..."}]')
     homepage_layout = Column(String(20), default='magazine',
                              comment='首页布局风格: magazine/stacked/grid')
+    # 图片水印（NULL=跟随全站 wb_config 设置，0/1=博客级显式覆盖）
+    watermark_enabled = Column(Integer, nullable=True, comment='blog图片水印开关：NULL=跟随全站，0=关闭，1=开启')
+    watermark_mode = Column(String(10), nullable=True, comment='水印样式：NULL=跟随全站，corner=右下角，tile=平铺')
     createtime = Column(Integer, default=_now, comment='开通时间戳（版权年份起点）')
     updatetime = Column(Integer, default=_now, onupdate=_now, comment='更新时间戳')
 

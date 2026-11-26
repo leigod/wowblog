@@ -117,6 +117,18 @@
                 <p class="form-hint">{{ t('admin.settings.basic.sensitive_words_hint') }}</p>
               </div>
             </el-form-item>
+            <el-form-item :label="t('admin.settings.basic.watermark')">
+              <div class="form-item">
+                <el-switch v-model="formState.watermarkEnabled" />
+                <template v-if="formState.watermarkEnabled">
+                  <el-radio-group v-model="formState.watermarkMode" size="small" class="watermark-mode-group">
+                    <el-radio-button value="corner">{{ t('admin.settings.basic.watermark_corner') }}</el-radio-button>
+                    <el-radio-button value="tile">{{ t('admin.settings.basic.watermark_tile') }}</el-radio-button>
+                  </el-radio-group>
+                </template>
+                <p class="form-hint">{{ t('admin.settings.basic.watermark_hint') }}</p>
+              </div>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleSubmit">{{
                 t('admin.settings.basic.save')
@@ -607,7 +619,9 @@ const formState = reactive({
   pageSize: 20,
   disableComments: false,
   disableDocComments: false,
-  sensitiveWordsEnabled: false
+  sensitiveWordsEnabled: false,
+  watermarkEnabled: false,
+  watermarkMode: 'corner'
 })
 
 // 消息推送配置状态
@@ -774,6 +788,8 @@ onMounted(async () => {
       // doc_comment: 0=禁用, 1=开启; 前端switch是"是否禁用"，需要反转
       formState.disableDocComments = res.data.doc_comment === 0
       formState.sensitiveWordsEnabled = res.data.sensitive_words_enabled === 1
+      formState.watermarkEnabled = res.data.watermark_enabled === 1
+      formState.watermarkMode = res.data.watermark_mode === 'tile' ? 'tile' : 'corner'
 
       // 加载消息推送配置
       if (res.data.message_push_method) {
@@ -836,7 +852,9 @@ const handleSubmit = async () => {
       disable_comment: formState.disableComments,
       // doc_comment: 0=禁用, 1=开启; 前端switch是"是否禁用"，需要反转
       doc_comment: formState.disableDocComments ? 0 : 1,
-      sensitive_words_enabled: formState.sensitiveWordsEnabled ? 1 : 0
+      sensitive_words_enabled: formState.sensitiveWordsEnabled ? 1 : 0,
+      watermark_enabled: formState.watermarkEnabled ? 1 : 0,
+      watermark_mode: formState.watermarkMode
     }
     const res = await updateSiteConfig(data)
     if (res.code === 1) {
@@ -971,6 +989,7 @@ const handleSiteLogoUpload = async (options: any) => {
   try {
     const res = await uploadFile({
       file: options.file,
+      purpose: 'material',
       onProgress: (progressEvent) => {
         if (progressEvent.total > 0) {
           const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100)
@@ -1001,6 +1020,7 @@ const handleFaviconUpload = async (options: any) => {
   try {
     const res = await uploadFile({
       file: options.file,
+      purpose: 'material',
       onProgress: (progressEvent) => {
         if (progressEvent.total > 0) {
           const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100)

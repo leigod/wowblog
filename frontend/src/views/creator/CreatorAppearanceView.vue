@@ -89,6 +89,24 @@
           <p class="upload-hint">{{ t('creator.appearance.layout_hint') }}</p>
         </el-form-item>
 
+        <!-- 图片水印 -->
+        <el-form-item :label="t('creator.appearance.watermark')">
+          <div class="watermark-settings">
+            <el-radio-group v-model="form.watermark_enabled">
+              <el-radio :value="null">{{ t('creator.appearance.watermark_follow_site') }}</el-radio>
+              <el-radio :value="1">{{ t('creator.appearance.watermark_on') }}</el-radio>
+              <el-radio :value="0">{{ t('creator.appearance.watermark_off') }}</el-radio>
+            </el-radio-group>
+            <template v-if="form.watermark_enabled === 1">
+              <el-radio-group v-model="form.watermark_mode" size="small">
+                <el-radio-button value="corner">{{ t('creator.appearance.watermark_corner') }}</el-radio-button>
+                <el-radio-button value="tile">{{ t('creator.appearance.watermark_tile') }}</el-radio-button>
+              </el-radio-group>
+            </template>
+            <p class="upload-hint">{{ t('creator.appearance.watermark_hint') }}</p>
+          </div>
+        </el-form-item>
+
         <!-- 社媒账号 -->
         <el-form-item :label="t('creator.appearance.social_links')">
           <div class="social-list">
@@ -131,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Picture, View } from '@element-plus/icons-vue'
@@ -156,10 +174,14 @@ const form = reactive<{
   logo: string | null
   favicon: string | null
   homepage_layout: BlogLayout
+  watermark_enabled: number | null
+  watermark_mode: 'corner' | 'tile' | null
 }>({
   logo: null,
   favicon: null,
-  homepage_layout: 'magazine'
+  homepage_layout: 'magazine',
+  watermark_enabled: null,
+  watermark_mode: null
 })
 
 const socialLinks = ref<{ platform: string; url: string }[]>([])
@@ -174,6 +196,15 @@ const selectLayout = (value: BlogLayout) => {
   form.homepage_layout = value
 }
 
+// 水印开关联动：开启时样式默认右下角；非开启状态样式跟随全站
+watch(() => form.watermark_enabled, (enabled) => {
+  if (enabled === 1 && form.watermark_mode === null) {
+    form.watermark_mode = 'corner'
+  } else if (enabled !== 1) {
+    form.watermark_mode = null
+  }
+})
+
 const loadConfig = async () => {
   loading.value = true
   try {
@@ -182,6 +213,8 @@ const loadConfig = async () => {
       form.logo = res.data.logo
       form.favicon = res.data.favicon
       form.homepage_layout = res.data.homepage_layout || 'magazine'
+      form.watermark_enabled = res.data.watermark_enabled ?? null
+      form.watermark_mode = res.data.watermark_mode ?? null
       socialLinks.value = Array.isArray(res.data.social_links) ? res.data.social_links : []
     }
   } catch (error) {
@@ -203,7 +236,8 @@ const beforePngUpload = (file: File, target: 'logo' | 'favicon') => {
 
 const doUpload = async (option: any, target: 'logo' | 'favicon') => {
   try {
-    const res = await uploadFile({ file: option.file as File })
+    // logo/favicon 是水印素材本身，标记 material 跳过水印
+    const res = await uploadFile({ file: option.file as File, purpose: 'material' })
     if (res.code === 1 && res.data) {
       // 上传接口返回 url（相对 /static/...）与 full_url（完整地址）。
       // 必须存 full_url：相对路径会被前端 dev server（5173）解析而 404
@@ -235,7 +269,9 @@ const handleSave = async () => {
       logo: form.logo,
       favicon: form.favicon,
       homepage_layout: form.homepage_layout,
-      social_links: links
+      social_links: links,
+      watermark_enabled: form.watermark_enabled,
+      watermark_mode: form.watermark_mode
     })
     if (res.code === 1) {
       ElMessage.success(t('creator.appearance.save_success'))

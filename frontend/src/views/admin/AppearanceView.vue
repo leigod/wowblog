@@ -434,7 +434,8 @@ const handleLogoUpload = async (options: any) => {
   logoUploading.value = true
 
   try {
-    const res = await uploadFile({ file })
+    // logo 是水印素材本身，标记 material 跳过水印
+    const res = await uploadFile({ file, purpose: 'material' })
     if (res.code === 1 && res.data) {
       footerFormState.logo_url = res.data.url || res.data.file_path || ''
       ElMessage.success(t('admin.appearance.footer.upload_success'))

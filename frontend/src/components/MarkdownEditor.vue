@@ -110,7 +110,7 @@
         </div>
         <template #tip>
           <div class="el-upload__tip">
-            支持 JPG、PNG、GIF 格式，文件大小不超过 5MB
+            支持 JPG、PNG、GIF 格式，文件大小不超过 2MB
           </div>
         </template>
       </el-upload>
@@ -130,6 +130,7 @@ import Image from '@tiptap/extension-image'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { all, createLowlight } from 'lowlight'
 import IconifyIcon from '@/components/IconIfy.vue'
+import { uploadFile } from '@/api/services/common'
 
 // 创建 lowlight 实例
 const lowlight = createLowlight(all)
@@ -275,8 +276,8 @@ const uploadImage = () => {
   dialogUploadImageVisible.value = true
 }
 
-// 处理文件选择 - 转换为 base64 并插入到编辑器
-const handleFileChange = (file: any) => {
+// 处理文件选择 - 上传到服务器（服务端自动加水印）并插入编辑器
+const handleFileChange = async (file: any) => {
   const rawFile = file.raw
 
   // 验证文件类型
@@ -286,26 +287,27 @@ const handleFileChange = (file: any) => {
     return
   }
 
-  // 验证文件大小
-  if (rawFile.size / 1024 / 1024 > 5) {
-    ElMessage.error('图片大小不能超过 5MB！')
+  // 验证文件大小（与后端上传接口 2MB 限制一致）
+  if (rawFile.size / 1024 / 1024 > 2) {
+    ElMessage.error('图片大小不能超过 2MB！')
     return
   }
 
-  // 转换为 base64
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    const base64Url = e.target?.result as string
-    if (editor.value) {
-      editor.value.chain().focus().setImage({ src: base64Url }).run()
+  try {
+    const res = await uploadFile({ file: rawFile })
+    if (res.code === 1 && res.data?.url) {
+      if (editor.value) {
+        editor.value.chain().focus().setImage({ src: res.data.url }).run()
+      }
+      dialogUploadImageVisible.value = false
+      ElMessage.success('图片上传成功！')
+    } else {
+      ElMessage.error(res.msg || '图片上传失败！')
     }
-    dialogUploadImageVisible.value = false
-    ElMessage.success('图片上传成功！')
+  } catch (error) {
+    console.error('图片上传失败:', error)
+    ElMessage.error('图片上传失败！')
   }
-  reader.onerror = () => {
-    ElMessage.error('读取图片文件失败！')
-  }
-  reader.readAsDataURL(rawFile)
 }
 
 // 监听外部值变化

@@ -15,6 +15,9 @@ class UserBlogConfigUpdate(BaseModel):
     favicon: Optional[str] = Field(None, max_length=255)
     social_links: Optional[List[dict]] = None
     homepage_layout: Optional[Literal['magazine', 'stacked', 'grid']] = None
+    # 图片水印：None=跟随全站（不提交/显式置 null），0/1=博客级覆盖
+    watermark_enabled: Optional[Literal[0, 1]] = None
+    watermark_mode: Optional[Literal['corner', 'tile']] = None
 
 
 class UserBlogConfig(UserBlogConfigUpdate):

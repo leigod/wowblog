@@ -17,11 +17,16 @@ export interface UserBlogConfig {
   favicon: string | null
   social_links: { platform: string; url: string }[] | null
   homepage_layout: 'magazine' | 'stacked' | 'grid'
+  /** blog 图片水印：null=跟随全站设置，0=关闭，1=开启 */
+  watermark_enabled: number | null
+  /** 水印样式：null=跟随全站，'corner'=右下角，'tile'=平铺 */
+  watermark_mode: 'corner' | 'tile' | null
   createtime: number
   updatetime: number
 }
 
 export type BlogLayout = 'magazine' | 'stacked' | 'grid'
+export type WatermarkMode = 'corner' | 'tile'
 
 export interface UserBlogCategory {
   id: number
@@ -150,7 +155,7 @@ export const getBlogConfig = () => {
 
 export const updateBlogConfig = (
   data: Partial<Pick<UserBlogConfig,
-    'blog_name' | 'blog_description' | 'impressum' | 'logo' | 'favicon' | 'social_links' | 'homepage_layout'>>
+    'blog_name' | 'blog_description' | 'impressum' | 'logo' | 'favicon' | 'social_links' | 'homepage_layout' | 'watermark_enabled' | 'watermark_mode'>>
 ) => {
   return request({
     url: '/creator/blog/config',

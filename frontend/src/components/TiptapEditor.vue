@@ -682,6 +682,7 @@ import html from 'highlight.js/lib/languages/xml'
 import ts from 'highlight.js/lib/languages/typescript'
 
 import { all, createLowlight } from 'lowlight'
+import { uploadFile } from '@/api/services/common'
 
 // import BoldIcon from './tiptap-icons/bold-icon.vue'
 // import ItalicIcon from './tiptap-icons/italic-icon.vue'
@@ -954,7 +955,7 @@ const uploadImage = () => {
 }
 
 // 处理文件选择 - 转换为 base64 并插入到编辑器
-const handleFileChange = (file: any) => {
+const handleFileChange = async (file: any) => {
   const rawFile = file.raw
 
   // 验证文件类型
@@ -964,26 +965,28 @@ const handleFileChange = (file: any) => {
     return
   }
 
-  // 验证文件大小
-  if (rawFile.size / 1024 / 1024 > 5) {
-    ElMessage.error('File size exceeds 5MB limit!')
+  // 验证文件大小（与后端上传接口 2MB 限制一致）
+  if (rawFile.size / 1024 / 1024 > 2) {
+    ElMessage.error('File size exceeds 2MB limit!')
     return
   }
 
-  // 转换为 base64
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    const base64Url = e.target?.result as string
-    if (editor.value) {
-      editor.value.chain().focus().setImage({ src: base64Url }).run()
+  // 上传到服务器（服务端按上传者身份自动合成水印），插入返回的 URL
+  try {
+    const res = await uploadFile({ file: rawFile })
+    if (res.code === 1 && res.data?.url) {
+      if (editor.value) {
+        editor.value.chain().focus().setImage({ src: res.data.url }).run()
+      }
+      dialogUploadImageFormVisible.value = false
+      ElMessage.success('Image uploaded successfully!')
+    } else {
+      ElMessage.error(res.msg || 'Image upload failed!')
     }
-    dialogUploadImageFormVisible.value = false
-    ElMessage.success('Image uploaded successfully!')
+  } catch (error) {
+    console.error('Image upload failed:', error)
+    ElMessage.error('Image upload failed!')
   }
-  reader.onerror = () => {
-    ElMessage.error('Failed to read image file!')
-  }
-  reader.readAsDataURL(rawFile)
 }
 
 const handleColorChange = (event: Event) => {

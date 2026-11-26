@@ -98,6 +98,9 @@ async def update_blog_config(
         db, user_id=current_user.id,
         data=schemas.UserBlogConfigUpdate(**update_payload)
     )
+    # 名称/logo/favicon/水印设置变更后，立即失效该用户的水印素材缓存
+    from app.services.watermark_service import invalidate_cache
+    invalidate_cache()
     # 响应与 GET 一致：social_links 以列表形态回显（PUT 分支用刚写入的 social_dict）
     data = schemas.UserBlogConfig.model_validate(config)
     data.social_links = (

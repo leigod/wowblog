@@ -1,10 +1,13 @@
-from fastapi import APIRouter, File, UploadFile, Request, Depends, HTTPException
+from fastapi import APIRouter, File, Form, UploadFile, Request, Depends, HTTPException
 
 from app.models.response import ApiResponse
 from app.utils.response import success, error
 from app.dependencies.authentication import get_current_user
+from app.database import get_db
+from app.services import image_optimize, watermark_service
 import os
 import pathlib
+import anyio.to_thread
 from datetime import datetime
 from app.utils.logger import upload_logger, security_logger
 
@@ -60,7 +63,20 @@ def _detect_exts_by_magic(content: bytes) -> set[str]:
 
 
 @router.post("/upload/", response_model=ApiResponse)
-async def upload_file(request: Request, file: UploadFile = File(), current_user: str = Depends(get_current_user)):
+async def upload_file(
+    request: Request,
+    file: UploadFile = File(),
+    purpose: str = Form("content"),
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """通用文件上传。
+
+    purpose:
+      - content（默认）: 正文图片，优化（压缩转 WebP）+ 按上传者身份合成水印；
+      - cover: 封面/OG/分类等展示图，仅优化不加水印；
+      - material: logo/favicon 等标识素材，完全跳过图片管线（保持原格式原字节）。
+    """
     try:
         client_ip = request.client.host
         upload_logger.info(f"用户 {current_user.username} (IP: {client_ip}) 请求上传文件: {file.filename}")
@@ -95,6 +111,36 @@ async def upload_file(request: Request, file: UploadFile = File(), current_user:
                 f"扩展名: {ext}, 实际检测为: {detected}"
             )
             return error(msg="文件内容与扩展名不符！")
+
+        # 5. 图片优化管线（均 fail-open：异常记日志按原文件落盘，不阻断上传）
+        #    - optimize（压缩+转 WebP）：purpose=cover/content 的照片类图片
+        #      （封面/OG 等展示图 700KB~1.4MB 的主要治理手段）
+        #    - 水印：仅 purpose=content；GIF 跳过以保全动图
+        if purpose != "material" and ext in image_optimize.OPTIMIZE_IMAGE_EXTENSIONS:
+            try:
+                content, ext = await anyio.to_thread.run_sync(
+                    image_optimize.optimize_image, content, ext
+                )
+            except Exception as exc:
+                upload_logger.warning(
+                    f"图片优化失败，按原文件保存 - 用户: {current_user.username}, "
+                    f"文件: {file.filename}, 错误: {exc}"
+                )
+
+        if purpose == "content" and ext in watermark_service.WATERMARK_IMAGE_EXTENSIONS:
+            try:
+                resolved = await watermark_service.resolve_watermark(db, current_user)
+                if resolved is not None and resolved.material is not None:
+                    watermarked = await anyio.to_thread.run_sync(
+                        watermark_service.apply_watermark, content, ext, resolved
+                    )
+                    if watermarked is not None:
+                        content = watermarked
+            except Exception as exc:
+                upload_logger.warning(
+                    f"水印合成失败，按原图保存 - 用户: {current_user.username}, "
+                    f"文件: {file.filename}, 错误: {exc}"
+                )
 
         # 生成 16 字节随机文件名 + 扩展名
         filename = f"{os.urandom(16).hex()}{ext}"

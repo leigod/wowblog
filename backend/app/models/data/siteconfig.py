@@ -76,6 +76,10 @@ class SiteConfig(Base):
     # 内容安全配置
     sensitive_words_enabled: Mapped[int] = mapped_column(Integer, default=0, comment='是否启用敏感词过滤，0=关闭，1=启用')
 
+    # 图片水印配置（全站默认；Author 可在 wb_user_blogs 覆盖）
+    watermark_enabled: Mapped[int] = mapped_column(Integer, default=0, server_default='0', comment='图片水印开关：1=开启，0=关闭')
+    watermark_mode: Mapped[str] = mapped_column(String(10), default='corner', server_default='corner', comment='水印样式：corner=右下角单戳，tile=平铺防裁剪')
+
     @property
     def footer_config(self):
         """获取 footer_config，自动解析 JSON"""

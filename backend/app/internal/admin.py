@@ -935,5 +935,8 @@ async def update_site_config(
         db: AsyncSession = Depends(get_db)):
     config = await crudSiteConfig.update_site_config(db, site_config)
     if config:
+        # 站名/logo/favicon/水印开关变更后，立即失效水印素材缓存
+        from app.services.watermark_service import invalidate_cache
+        invalidate_cache()
         return success(data=config)
     return error(msg='系统配置不存在', data={'error': '系统配置不存在'})
