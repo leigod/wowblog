@@ -138,11 +138,25 @@ def invalid_token():
 
 @pytest.fixture
 def mock_db_session():
-    """模拟数据库会话"""
+    """模拟数据库会话。
+
+    execute/scalar/scalars 必须显式配 MagicMock 返回值：AsyncMock 的
+    return_value 默认继承 AsyncMock 类型，其方法调用（如
+    result.scalar_one_or_none()）返回 coroutine——业务代码拿到后当
+    ORM 对象用（如 user.login_ip = ...）会抛 AttributeError。
+    默认语义：查无数据（None / 空列表），各测试可再自行覆盖返回值。
+    """
+    default_result = MagicMock()
+    default_result.scalar_one_or_none.return_value = None
+    default_result.scalar_one.return_value = None
+    default_result.scalars.return_value.all.return_value = []
+    default_result.fetchall.return_value = []
+    default_result.first.return_value = None
+
     session = AsyncMock(spec=AsyncSession)
-    session.execute = AsyncMock()
-    session.scalar = AsyncMock()
-    session.scalars = AsyncMock()
+    session.execute = AsyncMock(return_value=default_result)
+    session.scalar = AsyncMock(return_value=None)
+    session.scalars = AsyncMock(return_value=default_result)
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
     session.flush = AsyncMock()

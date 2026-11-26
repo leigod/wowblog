@@ -67,7 +67,9 @@ class TestAuthAPI:
         mock_user = SimpleNamespace(
             id=1,
             username="disableduser",
-            status="hidden"
+            # 用户状态域只有 normal/block（hidden 属于页面/标签），
+            # front_login 按 status == 'block' 拦截禁用用户
+            status="block"
         )
 
         with patch('app.routers.auth.authenticate_by_email_or_username', return_value=mock_user):
