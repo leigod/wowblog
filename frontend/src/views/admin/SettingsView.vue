@@ -121,19 +121,23 @@
               <div class="form-item">
                 <div class="watermark-row">
                   <el-switch v-model="formState.watermarkEnabled" />
-                  <el-radio-group
-                    v-if="formState.watermarkEnabled"
-                    v-model="formState.watermarkMode"
-                    size="small"
-                    class="watermark-mode-group"
-                  >
-                    <el-radio-button value="corner">{{ t('admin.settings.basic.watermark_corner') }}</el-radio-button>
-                    <el-radio-button value="tile">{{ t('admin.settings.basic.watermark_tile') }}</el-radio-button>
+                </div>
+                <div class="watermark-row-radio-group" v-if="formState.watermarkEnabled">
+                  <el-radio-group v-model="formState.watermarkMode" fill="primary">
+                    <el-radio-button
+                      value="corner"
+                      :label="t('admin.settings.basic.watermark_corner')"
+                    />
+                    <el-radio-button
+                      value="tile"
+                      :label="t('admin.settings.basic.watermark_tile')"
+                    />
                   </el-radio-group>
                 </div>
                 <p class="form-hint">{{ t('admin.settings.basic.watermark_hint') }}</p>
               </div>
             </el-form-item>
+
             <el-form-item>
               <el-button type="primary" @click="handleSubmit">{{
                 t('admin.settings.basic.save')
@@ -152,7 +156,7 @@
             class="settings-form"
           >
             <el-form-item :label="t('admin.settings.message.push_method')">
-              <el-radio-group v-model="messageFormState.pushMethod">
+              <el-radio-group v-model="messageFormState.pushMethod" class="push-method-group">
                 <el-radio value="websocket">
                   <div class="radio-option">
                     <span class="option-title">{{
@@ -1165,6 +1169,12 @@ watch(activeTab, (newTab) => {
   flex-wrap: nowrap;
 }
 
+.watermark-row-radio-group {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+}
+
 .form-hint {
   font-size: 14px;
   color: #999999;
@@ -1304,15 +1314,16 @@ watch(activeTab, (newTab) => {
   line-height: 1.6;
 }
 
-/* 消息推送配置样式 */
-.settings-form :deep(.el-radio-group) {
+/* 消息推送配置样式（收窄作用域：竖排大卡片仅限推送方式组，
+   避免污染同组件其它 tab 的 radio-group / radio-button） */
+.settings-form :deep(.push-method-group) {
   display: flex;
   flex-direction: column;
   gap: 16px;
   width: 100%;
 }
 
-.settings-form :deep(.el-radio) {
+.settings-form :deep(.push-method-group .el-radio) {
   width: 100%;
   margin-right: 0;
   margin-bottom: 0 !important;
@@ -1322,11 +1333,11 @@ watch(activeTab, (newTab) => {
   padding: 8px 0;
 }
 
-.settings-form :deep(.el-radio__input) {
+.settings-form :deep(.push-method-group .el-radio__input) {
   margin-top: 2px;
 }
 
-.settings-form :deep(.el-radio__label) {
+.settings-form :deep(.push-method-group .el-radio__label) {
   width: 100%;
   padding-left: 8px;
 }
@@ -1357,14 +1368,14 @@ watch(activeTab, (newTab) => {
   word-wrap: break-word;
 }
 
-.settings-form :deep(.el-radio__label) {
+.settings-form :deep(.push-method-group .el-radio__label) {
   width: 100%;
   padding-left: 8px;
   max-width: calc(100% - 24px);
   white-space: normal !important;
 }
 
-.settings-form :deep(.el-radio) {
+.settings-form :deep(.push-method-group .el-radio) {
   width: 100%;
   margin-right: 0;
   margin-bottom: 0 !important;
@@ -1376,7 +1387,7 @@ watch(activeTab, (newTab) => {
   height: auto;
 }
 
-.settings-form :deep(.el-radio__input) {
+.settings-form :deep(.push-method-group .el-radio__input) {
   margin-top: 2px;
 }
 
@@ -1472,7 +1483,7 @@ watch(activeTab, (newTab) => {
   }
 
   /* 单选按钮组移动端优化 */
-  .settings-form :deep(.el-radio) {
+  .settings-form :deep(.push-method-group .el-radio) {
     padding: 12px;
     border: 1px solid var(--el-border-color);
     border-radius: 8px;
