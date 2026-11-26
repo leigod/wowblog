@@ -620,7 +620,13 @@ async def get_home_article_list(reqdata: schemas.HomeArticleListRequest, db: Asy
         .order_by(models.BlogArticle.is_pin.desc(), models.BlogArticle.createtime.desc()) \
         .offset(skip) \
         .limit(limit)
-    
+
+    # 首页编辑推荐区已展示的文章不再进入下方列表（避免同一篇上下重复，
+    # 尤其置顶主推文章会同时占据推荐区焦点位和列表置顶位）
+    exclude_ids = [aid for aid in (reqdata.exclude_ids or []) if aid > 0]
+    if exclude_ids:
+        query = query.where(models.BlogArticle.id.not_in(exclude_ids))
+
     if reqdata.type == 'featured':
         query = query.where(models.BlogArticle.is_featured == True)
     elif reqdata.type == 'recommend':
@@ -732,7 +738,12 @@ async def get_home_article_count(db: AsyncSession, reqdata: schemas.HomeArticleL
         .join(models_users.User, models.BlogArticle.author == models_users.User.id) \
         .where(models.BlogArticle.status == 'published') \
         .order_by(models.BlogArticle.is_pin.desc(), models.BlogArticle.createtime.desc())
-    
+
+    # 与列表查询同口径排除编辑推荐区文章，保证 total / hasMore 判断一致
+    exclude_ids = [aid for aid in (reqdata.exclude_ids or []) if aid > 0]
+    if exclude_ids:
+        query = query.where(models.BlogArticle.id.not_in(exclude_ids))
+
     if reqdata.type == 'featured':
         query = query.where(models.BlogArticle.is_featured == True)
     elif reqdata.type == 'recommend':

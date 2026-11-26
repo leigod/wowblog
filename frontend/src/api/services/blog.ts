@@ -25,6 +25,8 @@ export interface ArticleTimeSearchParams {
 export interface HomeArticleSearchParams {
   type: 'all' | 'featured' | 'following' | 'recommend'
   uid?: number
+  /** 首页编辑推荐区已展示的文章 id：下方列表排除，避免同一篇上下重复 */
+  exclude_ids?: number[]
 }
 
 /**

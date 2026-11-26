@@ -95,6 +95,8 @@ class BlogArticleListRequest(BaseModel):
 class HomeArticleListRequest(BaseModel):
     type: Literal['all', 'following', 'featured', 'recommend'] = 'all'
     uid: int | None = None
+    # 首页编辑推荐区已展示的文章 id：下方列表排除，避免同一篇上下重复出现
+    exclude_ids: list[int] = []
 
 
 class ArticleStatData(BaseModel):

@@ -627,8 +627,11 @@ onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange)
   // 确保路由切换时不会恢复滚动位置
   savedScrollPosition = 0
-  getArticleList()
-  loadEditorialArticles()
+  // 先取编辑推荐区拿到 7 篇 id，下方列表请求携带 exclude_ids 排除它们；
+  // 侧栏（最近更新/热门标签/热门文章）不依赖该结果，并行加载不受影响
+  loadEditorialArticles().then(() => {
+    getArticleList()
+  })
   loadRecentArticles()
   loadHotTags()
   loadHotArticles()
@@ -682,10 +685,14 @@ const editorialSideList = computed(() =>
   editorialList.value.filter((a) => a.id !== editorialHero.value?.id)
 )
 
+// 推荐区 7 篇的 id：下方列表请求统一携带，后端排除避免上下重复
+const editorialExcludeIds = computed(() => editorialList.value.map((a) => a.id))
+
 // 获取文章列表
 const getArticleList = async () => {
   const params: HomeArticleSearchParams = {
-    type: 'all'
+    type: 'all',
+    exclude_ids: editorialExcludeIds.value
   }
   const res = await getBlogList(currentPage.value, pageSize.value, params)
   if (res.code === 1) {
@@ -722,7 +729,8 @@ const getArticleList = async () => {
 const getFollowingArticleList = async () => {
   const params: HomeArticleSearchParams = {
     type: 'following',
-    uid: appStore.userInfo.id || 0
+    uid: appStore.userInfo.id || 0,
+    exclude_ids: editorialExcludeIds.value
   }
   const res = await getBlogList(followingCurrentPage.value, followingPageSize.value, params)
   if (res.code === 1) {
@@ -749,7 +757,8 @@ const getFollowingArticleList = async () => {
 // 获取精选文章列表
 const getFeaturedArticleList = async () => {
   const params: HomeArticleSearchParams = {
-    type: 'featured'
+    type: 'featured',
+    exclude_ids: editorialExcludeIds.value
   }
   const res = await getBlogList(featuredCurrentPage.value, featuredPageSize.value, params)
   if (res.code === 1) {
