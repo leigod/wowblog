@@ -6,7 +6,6 @@ from fastapi.openapi.constants import REF_PREFIX
 from fastapi.openapi.utils import validation_error_response_definition
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 from sqlalchemy.exc import SQLAlchemyError
 import time
 import traceback
@@ -20,6 +19,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# 422 常量：Starlette 新版改名 UNPROCESSABLE_CONTENT（RFC 9110 术语更新），
+# 新版对旧名发 DeprecationWarning、旧版没有新名——兼容取值
+try:
+    HTTP_422 = status.HTTP_422_UNPROCESSABLE_CONTENT
+except AttributeError:
+    HTTP_422 = status.HTTP_422_UNPROCESSABLE_ENTITY
 
 # 生产环境不返回堆栈跟踪
 DEBUG_MODE = os.getenv('DEBUG', 'false').lower() == 'true'
@@ -77,7 +83,7 @@ async def http_exception_handler(request: Request, exc):
 #                 "errors": exc.errors()
 #             }
 #         },
-#         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
+#         status_code=HTTP_422
 #     )
 
 
@@ -95,7 +101,7 @@ async def validation_exception_handler(
                 "errors": _json_safe(exc.errors())
             }
         },
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
+        status_code=HTTP_422
     )
 
 
