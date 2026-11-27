@@ -30,22 +30,31 @@ from app.utils.logger import upload_logger
 # ---------- 可调常量（渲染规格） ----------
 WATERMARK_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 MIN_IMAGE_EDGE = 240           # 宽或高低于此值跳过（小图保护）
-LOGO_WIDTH_RATIO = 0.18        # logo 宽 = 目标图宽 × 18%
-LOGO_MAX_WIDTH = 240
-LOGO_OPACITY = 0.65
-TEXT_OPACITY = 0.55
-TILE_OPACITY = 0.18            # 平铺模式透明度（防裁剪，弱化存在感）
+
+# 右下角模式的尺寸按「图宽」取比例：封面常以 760px（文章头图）甚至 320px（列表卡片）
+# 的宽度显示，若按短边取比例并设 32px 上限，水印缩放后会小到看不见。
+MARGIN_RATIO = 0.025           # 边距 = 图宽 × 2.5%
+MARGIN_MIN = 12
+LOGO_WIDTH_RATIO = 0.18        # logo 宽 = 图宽 × 18%
+LOGO_MAX_WIDTH = 320
+LOGO_OPACITY = 0.9
+TEXT_WIDTH_RATIO = 0.026       # 字号 = 图宽 × 2.6%（1376 宽的封面约 36px，缩到 760px 显示约 20px）
+TEXT_SIZE_MIN, TEXT_SIZE_MAX = 16, 64
+ICON_FONT_RATIO = 1.15         # favicon 高 = 字号 × 1.15
+
+# 对比度：白字 + 深色描边 + 柔和投影三者叠加，浅色、深色、花哨底上都能读
+TEXT_FILL_ALPHA = 0.95
+TEXT_STROKE_ALPHA = 0.7
+SHADOW_ALPHA = 0.6
+
+# 平铺模式（防裁剪）：强度低于右下角模式，全图可辨但不抢画面（在真实封面上按 760px 显示调出）
+TILE_STRENGTH = 0.65
 TILE_BASE_RATIO = 0.35         # 平铺单个水印基准 = 目标图短边 × 35%
 TILE_FONT_RATIO = 0.16         # 平铺字号 = 基准 × 16%
 TILE_FONT_MIN, TILE_FONT_MAX = 16, 48
 TILE_ICON_RATIO = 0.14         # 平铺图标高 = 基准 × 14%
-ICON_HEIGHT_RATIO = 0.03       # favicon 高 = 目标图短边 × 3%
-ICON_HEIGHT_MIN, ICON_HEIGHT_MAX = 16, 32
-TEXT_SIZE_RATIO = 0.03         # 文字字号 = 目标图短边 × 3%
-TEXT_SIZE_MIN, TEXT_SIZE_MAX = 14, 32
-MARGIN_RATIO = 0.02            # 右下角边距 = 短边 × 2%
-MARGIN_MIN = 16
 TILE_SPACING_RATIO = 0.4       # 平铺间隔 = 单个水印尺寸 × 0.4
+
 MATERIAL_CACHE_TTL = 300
 
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent  # app/services → app → backend
@@ -232,13 +241,14 @@ def _build_corner_layer(size, material: WatermarkMaterial) -> 'Image':
     from PIL import Image
 
     width, height = size
-    wm = _render_material(size, material)
-    margin = max(MARGIN_MIN, int(min(width, height) * MARGIN_RATIO))
-    x = max(0, width - wm.width - margin)
-    y = max(0, height - wm.height - margin)
+    wm, pad = _render_material(size, material)
+    margin = max(MARGIN_MIN, int(width * MARGIN_RATIO))
+    # wm 四周有 pad 像素的投影缓冲区，按主体尺寸定位，视觉边距才准确
+    x = max(0, width - (wm.width - 2 * pad) - margin) - pad
+    y = max(0, height - (wm.height - 2 * pad) - margin) - pad
 
     layer = Image.new('RGBA', size, (0, 0, 0, 0))
-    layer.paste(wm, (x, y), wm)
+    _composite_at(layer, wm, (x, y))
     return layer
 
 
@@ -248,7 +258,7 @@ def _build_tile_layer(size, material: WatermarkMaterial) -> 'Image':
 
     width, height = size
     # 平铺用短边 × TILE_BASE_RATIO 基准的水印，间隔 0.4 倍，保证密度
-    wm = _render_material((int(min(width, height) * TILE_BASE_RATIO),) * 2, material, tile=True)
+    wm, _pad = _render_material((int(min(width, height) * TILE_BASE_RATIO),) * 2, material, tile=True)
     rotated = wm.rotate(45, expand=True, resample=Image.BICUBIC)
     rw, rh = rotated.size
     step_x, step_y = int(rw * (1 + TILE_SPACING_RATIO)), int(rh * (1 + TILE_SPACING_RATIO))
@@ -256,101 +266,156 @@ def _build_tile_layer(size, material: WatermarkMaterial) -> 'Image':
     canvas = Image.new('RGBA', (width + 2 * rw, height + 2 * rh), (0, 0, 0, 0))
     for cy in range(0, canvas.height, step_y):
         for cx in range(0, canvas.width, step_x):
-            canvas.paste(rotated, (cx, cy), rotated)
+            canvas.alpha_composite(rotated, (cx, cy))
 
     left = (canvas.width - width) // 2
     top = (canvas.height - height) // 2
     return canvas.crop((left, top, left + width, top + height))
 
 
-def _render_material(target_size, material: WatermarkMaterial, tile: bool = False) -> 'Image':
-    """按素材类型渲染单个水印图（RGBA，已应用透明度）。
+def _render_material(target_size, material: WatermarkMaterial, tile: bool = False) -> tuple:
+    """按素材类型渲染单个水印，返回 (RGBA 图, 留边 pad)。
 
-    corner 模式 target_size 为目标图尺寸，按比例推算各元素大小；
-    tile 模式 target_size 为 (基准边, 基准边)，字号取基准的 16%（钳 16~48）。
+    图中四周 pad 像素是投影的缓冲区，定位时按主体尺寸（宽高各减 2*pad）计算。
+    corner 模式 target_size 为目标图尺寸，各元素按图宽取比例；
+    tile 模式 target_size 为 (基准边, 基准边)，整体强度降为 TILE_STRENGTH。
     """
-    from PIL import Image
-
-    short_edge = min(target_size)
     if tile:
-        opacity = TILE_OPACITY
-        font_size = _clamp(int(short_edge * TILE_FONT_RATIO), TILE_FONT_MIN, TILE_FONT_MAX)
-        icon_h = _clamp(int(short_edge * TILE_ICON_RATIO), 16, 48)
-        logo_w = min(int(short_edge * 0.8), 320)
+        base = min(target_size)
+        font_size = _clamp(round(base * TILE_FONT_RATIO), TILE_FONT_MIN, TILE_FONT_MAX)
+        icon_h = _clamp(round(base * TILE_ICON_RATIO), 16, 56)
+        logo_w = min(round(base * 0.8), 320)
+        strength = TILE_STRENGTH
     else:
-        opacity = None
-        font_size = _clamp(int(short_edge * TEXT_SIZE_RATIO), TEXT_SIZE_MIN, TEXT_SIZE_MAX)
-        icon_h = _clamp(int(short_edge * ICON_HEIGHT_RATIO), ICON_HEIGHT_MIN, ICON_HEIGHT_MAX)
-        logo_w = min(int(target_size[0] * LOGO_WIDTH_RATIO), LOGO_MAX_WIDTH)
+        width = target_size[0]
+        font_size = _clamp(round(width * TEXT_WIDTH_RATIO), TEXT_SIZE_MIN, TEXT_SIZE_MAX)
+        icon_h = _clamp(round(font_size * ICON_FONT_RATIO), 16, 72)
+        logo_w = min(round(width * LOGO_WIDTH_RATIO), LOGO_MAX_WIDTH)
+        strength = 1.0
 
     if material.kind == 'logo':
-        return _render_logo(material.image_bytes, logo_w, opacity or LOGO_OPACITY)
+        return _render_logo(material.image_bytes, logo_w, strength)
     if material.kind == 'icon_text':
-        return _render_icon_text(material.image_bytes, material.text, icon_h, font_size,
-                                 opacity or TEXT_OPACITY)
-    return _render_text(material.text or '', font_size, opacity or TEXT_OPACITY)
+        return _render_icon_text(material.image_bytes, material.text, icon_h, font_size, strength)
+    return _render_text(material.text or '', font_size, strength)
 
 
-def _render_logo(logo_bytes: bytes, logo_w: int, opacity: float) -> 'Image':
+def _render_logo(logo_bytes: bytes, logo_w: int, strength: float) -> tuple:
+    """logo 水印：等比缩放 + 投影（logo 自身颜色不定，靠投影保证浅色底上可辨）。"""
     from PIL import Image
 
-    logo = Image.open(BytesIO(logo_bytes)).convert('RGBA')
+    logo = _load_rgba(logo_bytes)
     logo_w = max(1, logo_w)
-    ratio = logo_w / logo.width
-    logo_h = max(1, int(logo.height * ratio))
+    logo_h = max(1, round(logo.height * logo_w / logo.width))
     logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
-    return _apply_opacity(logo, opacity)
+    _apply_opacity(logo, LOGO_OPACITY * strength)
+    return _with_shadow(logo, max(1.0, logo_h / 8), strength)
 
 
-def _render_icon_text(icon_bytes: bytes, text: str, icon_h: int, font_size: int, opacity: float) -> 'Image':
-    from PIL import Image
+def _render_icon_text(icon_bytes: bytes, text: str, icon_h: int, font_size: int, strength: float) -> tuple:
+    """favicon 小图标 + 名称，整体带投影。"""
+    from PIL import Image, ImageDraw
 
-    icon = Image.open(BytesIO(icon_bytes)).convert('RGBA')
-    icon_w = max(1, int(icon.width * (icon_h / icon.height)))
+    icon_h = max(1, icon_h)
+    icon = _load_rgba(icon_bytes)
+    icon_w = max(1, round(icon.width * icon_h / icon.height))
     icon = icon.resize((icon_w, icon_h), Image.LANCZOS)
+    _apply_opacity(icon, LOGO_OPACITY * strength)
 
     font = _load_font(font_size)
-    t_w, t_h = _measure_text(text, font)
-    gap = max(2, int(icon_h * 0.35))
-    total_w, total_h = icon_w + gap + t_w, max(icon_h, t_h)
+    stroke = _stroke_width(font_size)
+    t_w, t_h, offset_x, offset_y = _text_bbox(text or '', font, stroke)
+    gap = max(4, round(font_size * 0.45))
 
-    wm = Image.new('RGBA', (total_w, total_h), (0, 0, 0, 0))
-    wm.paste(icon, (0, (total_h - icon_h) // 2), icon)
-    _draw_text(wm, (icon_w + gap, (total_h - t_h) // 2), text, font, opacity)
-    return wm
+    body = Image.new('RGBA', (icon_w + gap + t_w, max(icon_h, t_h)), (0, 0, 0, 0))
+    body.paste(icon, (0, (body.height - icon_h) // 2), icon)
+    ImageDraw.Draw(body).text(
+        (icon_w + gap - offset_x, (body.height - t_h) // 2 - offset_y), text or '', font=font,
+        fill=(255, 255, 255, _alpha(TEXT_FILL_ALPHA, strength)),
+        stroke_width=stroke, stroke_fill=(0, 0, 0, _alpha(TEXT_STROKE_ALPHA, strength)),
+    )
+    return _with_shadow(body, max(1.0, max(font_size, icon_h) / 8), strength)
 
 
-def _render_text(text: str, font_size: int, opacity: float) -> 'Image':
+def _render_text(text: str, font_size: int, strength: float) -> tuple:
+    """纯文字水印：白字 + 深色描边 + 投影。"""
+    from PIL import Image, ImageDraw
+
+    font = _load_font(font_size)
+    stroke = _stroke_width(font_size)
+    t_w, t_h, offset_x, offset_y = _text_bbox(text, font, stroke)
+
+    body = Image.new('RGBA', (max(1, t_w), max(1, t_h)), (0, 0, 0, 0))
+    ImageDraw.Draw(body).text(
+        (-offset_x, -offset_y), text, font=font,
+        fill=(255, 255, 255, _alpha(TEXT_FILL_ALPHA, strength)),
+        stroke_width=stroke, stroke_fill=(0, 0, 0, _alpha(TEXT_STROKE_ALPHA, strength)),
+    )
+    return _with_shadow(body, max(1.0, font_size / 7), strength)
+
+
+def _load_rgba(image_bytes: bytes) -> 'Image':
     from PIL import Image
 
-    font = _load_font(font_size)
-    t_w, t_h = _measure_text(text, font)
-
-    wm = Image.new('RGBA', (t_w, t_h), (0, 0, 0, 0))
-    _draw_text(wm, (0, 0), text, font, opacity)
-    return wm
+    return Image.open(BytesIO(image_bytes)).convert('RGBA')
 
 
-def _draw_text(image, pos, text: str, font, opacity: float) -> None:
-    """白字 + 黑描边，保证任意底色可读。"""
-    from PIL import ImageDraw
+def _with_shadow(body: 'Image', blur: float, strength: float) -> tuple:
+    """给主体加一圈柔和的深色投影，返回 (带留边的图, 留边 pad)。
 
-    draw = ImageDraw.Draw(image)
-    stroke = max(1, font.size // 14)
-    draw.text(
-        pos, text, font=font,
-        fill=(255, 255, 255, int(255 * opacity)),
-        stroke_width=stroke, stroke_fill=(0, 0, 0, int(255 * opacity * 0.7)),
+    投影取主体 alpha 通道做高斯模糊得到，所以对文字、logo、图标一视同仁；
+    纯白主体落在浅色区域时，靠这圈暗色光晕与背景分开。
+    """
+    from PIL import Image, ImageFilter
+
+    pad = int(2 * blur) + 2
+    size = (body.width + 2 * pad, body.height + 2 * pad)
+    halo = Image.new('L', size, 0)
+    halo.paste(
+        body.filter(ImageFilter.GaussianBlur(blur)).split()[3]
+        .point(lambda v: int(v * SHADOW_ALPHA * strength)),
+        (pad, pad),
     )
+    out = Image.new('RGBA', size, (0, 0, 0, 0))
+    out.putalpha(halo)  # RGB 保持全 0，即黑色投影
+    out.alpha_composite(body, (pad, pad))
+    return out, pad
 
 
-def _measure_text(text: str, font) -> tuple:
+def _composite_at(dst: 'Image', src: 'Image', pos: tuple) -> None:
+    """把 src 以 'over' 方式合成到 dst 上，越界部分自动裁掉。
+
+    不能用 paste(src, pos, src)：以 alpha 作遮罩贴图会把透明度再乘一次，
+    描边设计的 0.7 实际只剩约 0.42，浅色底上就糊了。
+    """
+    x, y = pos
+    crop_left, crop_top = max(0, -x), max(0, -y)
+    if crop_left >= src.width or crop_top >= src.height:
+        return
+    x, y = max(0, x), max(0, y)
+    if crop_left or crop_top:
+        src = src.crop((crop_left, crop_top, src.width, src.height))
+    dst.alpha_composite(src, (x, y))
+
+
+def _stroke_width(size: int) -> int:
+    """描边宽度：太细压不住浅色底，太粗会把汉字内部的空隙糊死。"""
+    return max(1, round(size / 16))
+
+
+def _alpha(base_alpha: float, strength: float) -> int:
+    return int(255 * min(1.0, base_alpha * strength))
+
+
+def _text_bbox(text: str, font, stroke: int) -> tuple:
+    """文字（含描边）的包围盒：返回 (宽, 高, 左偏移, 上偏移)。"""
     from PIL import Image, ImageDraw
 
     canvas = Image.new('RGBA', (1, 1))
-    bbox = ImageDraw.Draw(canvas).textbbox((0, 0), text, font=font,
-                                           stroke_width=max(1, font.size // 14))
-    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+    left, top, right, bottom = ImageDraw.Draw(canvas).textbbox(
+        (0, 0), text, font=font, stroke_width=stroke
+    )
+    return right - left, bottom - top, left, top
 
 
 def _load_font(size: int):

@@ -245,6 +245,67 @@ def test_watermark_actually_drawn():
     assert changed > 0, '右下角无任何水印像素'
 
 
+# ---------- 可见性（回归：水印必须真的看得见） ----------
+# 这组断言来自一次线上返工：旧参数（字号按短边取 3% 且上限 32px、白字透明度 0.55、
+# 描边 0.39、平铺透明度 0.18，外加合成时透明度被平方）在真实照片封面上几乎不可见，
+# 结果是「开关开了，但用户看不到水印」。
+
+def _flat_png(w, h, color) -> bytes:
+    buf = BytesIO()
+    Image.new('RGB', (w, h), color).save(buf, 'PNG')
+    return buf.getvalue()
+
+
+def _corner_text_png(w, h, color) -> bytes:
+    out = ws.apply_watermark(_flat_png(w, h, color), '.png',
+                             ws.ResolvedWatermark(True, 'corner', ws.WatermarkMaterial('text', text='哇饮到家@daojia')))
+    assert out is not None
+    return out
+
+
+def _ratio_in_corner(out: bytes, w, h, lo, hi) -> float:
+    """右下角 420x120 区域内亮度落在 [lo, hi) 的像素占比。"""
+    region = Image.open(BytesIO(out)).convert('L').crop((w - 420, h - 120, w, h))
+    hist = region.histogram()
+    return sum(hist[lo:hi]) / (region.width * region.height)
+
+
+@pytest.mark.parametrize('color, lo, hi, what', [
+    ((245, 243, 238), 0, 128, '深色像素'),     # 浅色底：靠描边和投影显形
+    ((20, 22, 28), 200, 256, '亮色像素'),      # 深色底：靠白色字身显形
+])
+def test_corner_text_has_contrast_on_flat_background(color, lo, hi, what):
+    """纯色底上的文字水印必须带出足够的对比（旧参数白字 0.55 压白底等于没画）。"""
+    ratio = _ratio_in_corner(_corner_text_png(1376, 768, color), 1376, 768, lo, hi)
+    assert ratio > 0.02, f'右下角{what}占比仅 {ratio:.1%}，水印在这种底色上不可见'
+
+
+@pytest.mark.parametrize('width, height, min_height', [(1376, 768, 34), (2560, 1440, 52)])
+def test_corner_text_scales_with_image_width(width, height, min_height):
+    """字号按图宽取比例且不被 32px 上限压制——封面缩到 760px 显示时仍要读得出来。"""
+    from PIL import ImageChops
+    src = _flat_png(width, height, (90, 140, 200))
+    a = Image.open(BytesIO(src)).convert('L')
+    b = Image.open(BytesIO(_corner_text_png(width, height, (90, 140, 200)))).convert('L')
+    left, top, right, bottom = ImageChops.difference(a, b).point(lambda v: 255 if v > 8 else 0).getbbox()
+    assert bottom - top >= min_height, f'水印字高仅 {bottom - top}px'
+    # 贴右下角，留边约为图宽的 2.5%
+    assert 0 < width - right < width * 0.06
+    assert 0 < height - bottom < width * 0.06
+
+
+def test_tile_is_perceptible():
+    """平铺模式必须在画面上留下可感知的痕迹（旧透明度 0.18 等于隐形）。"""
+    from PIL import ImageChops
+    src = _flat_png(1200, 800, (128, 128, 128))
+    out = ws.apply_watermark(src, '.png', ws.ResolvedWatermark(True, 'tile', ws.WatermarkMaterial('text', text='哇饮到家@daojia')))
+    a = Image.open(BytesIO(src)).convert('L')
+    b = Image.open(BytesIO(out)).convert('L')
+    hist = ImageChops.difference(a, b).histogram()
+    strong = sum(hist[41:]) / (1200 * 800)
+    assert 0.01 < strong < 0.2, f'平铺强变化像素占比 {strong:.1%}'
+
+
 # ---------- 素材路径安全 ----------
 
 def test_read_material_rejects_traversal(tmp_path, monkeypatch):
