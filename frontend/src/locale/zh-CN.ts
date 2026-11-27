@@ -664,7 +664,8 @@ export default {
   'admin.comment.words.save_failed': '保存失败，请重试',
   'admin.comment.words.delete_success': '已删除',
   'admin.comment.words.delete_failed': '删除失败，请重试',
-  'admin.comment.words.import_hint': '纯文本，一行一条：普通词=拦截，"词=>替换词"=替换，"词@@review"=标记审核，# 开头为注释',
+  // @ 是 vue-i18n 的链接消息语法，字面量必须写成 {'@'}（生产构建下未转义会在渲染时抛错，该处内容不显示）
+  'admin.comment.words.import_hint': '纯文本，一行一条：普通词=拦截，"词=>替换词"=替换，"词{\'@\'}{\'@\'}review"=标记审核，# 开头为注释',
   'admin.comment.words.import_file': '选择文件',
   'admin.comment.words.import_content': '内容',
   'admin.comment.words.import_content_placeholder': '可从 txt 文件导入，也可直接在此粘贴',

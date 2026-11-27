@@ -612,7 +612,8 @@ export default {
   'admin.comment.words.save_failed': 'Failed to save, please retry',
   'admin.comment.words.delete_success': 'Deleted',
   'admin.comment.words.delete_failed': 'Failed to delete, please retry',
-  'admin.comment.words.import_hint': 'Plain text, one entry per line: word = block, "word=>replacement" = replace, "word@@review" = mark for review, lines starting with # are comments',
+  // @ is vue-i18n linked-message syntax; a literal must be written as {'@'}
+  'admin.comment.words.import_hint': 'Plain text, one entry per line: word = block, "word=>replacement" = replace, "word{\'@\'}{\'@\'}review" = mark for review, lines starting with # are comments',
   'admin.comment.words.import_file': 'Choose file',
   'admin.comment.words.import_content': 'Content',
   'admin.comment.words.import_content_placeholder': 'Import from a .txt file, or paste directly here',
