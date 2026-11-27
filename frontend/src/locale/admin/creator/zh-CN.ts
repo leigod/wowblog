@@ -59,7 +59,9 @@ export default {
     watermark_off: '关闭',
     watermark_corner: '右下角',
     watermark_tile: '平铺',
-    watermark_hint: '你上传的文章图片将带上博客标识水印（优先使用 Logo，其次 Favicon + 名称，都没有时显示「博客名@账号」）；优先级高于全站设置',
+    // 注意：vue-i18n 把 @ 当作「链接消息」语法，字面量必须写成 {'@'}
+    // （dev 下只告警并回退原文，生产构建会抛错导致该表单项整个不渲染）
+    watermark_hint: '你上传的文章图片将带上博客标识水印（优先使用 Logo，其次 Favicon + 名称，都没有时显示「博客名{\'@\'}账号」）；优先级高于全站设置',
     social_links: '社媒账号',
     social_links_hint: '与「个人资料」的社媒账号同源（同一份数据），展示在博客首页资料区，最多 13 项',
     social_platform: '平台',

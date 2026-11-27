@@ -59,7 +59,8 @@ export default {
     watermark_off: 'Disabled',
     watermark_corner: 'Corner',
     watermark_tile: 'Tiled',
-    watermark_hint: 'Images you upload will carry your blog watermark (logo first, then favicon + name, or "blogname@username" as fallback); this overrides the site-wide setting',
+    // @ is vue-i18n linked-message syntax; a literal must be written as {'@'}
+    watermark_hint: 'Images you upload will carry your blog watermark (logo first, then favicon + name, or "blogname{\'@\'}username" as fallback); this overrides the site-wide setting',
     social_links: 'Social Links',
     social_links_hint: 'Synced with your Profile social accounts (single source of truth), shown in the profile section of your blog homepage, up to 13',
     social_platform: 'Platform',
