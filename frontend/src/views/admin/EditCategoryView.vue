@@ -401,13 +401,13 @@ const handleCustomUpload = async (options: any) => {
       }
     })
 
-    if (res.code === 1) {
-      options.onSuccess(res.data)
-    } else {
-      options.onError(new Error(res.msg || t('admin.category.page.form.uploaderror.default')))
+    if (res.code !== 1) {
+      throw new Error(res.msg || t('admin.category.page.form.uploaderror.default'))
     }
-  } catch (error) {
-    options.onError(error)
+    // 不要手动调用 options.onSuccess / onError：本函数返回的 Promise 由 Element Plus 接管，
+    // 兑现时调用 on-success(res.data)、拒绝时调用 on-error(err)。手动再调一次会让回调
+    // 触发两次，第二次参数是 undefined。
+    return res.data
   } finally {
     isUploading.value = false
   }
