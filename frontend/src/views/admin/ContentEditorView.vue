@@ -17,68 +17,56 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElButton, ElIcon, ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import TiptapEditor from '@/components/TiptapEditor.vue'
+import {
+  PAGE_DRAFT_QUERY_KEY,
+  draftTokenFromQuery,
+  getPageDraft,
+  savePageDraft
+} from '@/utils/pageDraft'
 
 const router = useRouter()
 const route = useRoute()
 
-// Get content from route query or default to empty string
-const content = ref((route.query.content as string) || '')
-// Store the page ID or slug if editing existing page
-const pageId = ref((route.query.pageId as string) || '')
-const mode = ref((route.query.mode as string) || 'create')
+// 草稿由表单页在打开编辑器前写入：初始正文、以及“回到哪个表单”都以它为准
+const draft = getPageDraft(draftTokenFromQuery(route.query[PAGE_DRAFT_QUERY_KEY]))
+const content = ref(draft?.content ?? '')
+// 进入编辑器时的正文，用于判断是否有未保存的修改
+const initialContent = content.value
 
-onMounted(() => {
-  // Initialization logic if needed
-})
+const returnPath = computed(() =>
+  draft?.mode === 'edit' ? `/admin/pages/edit/${draft.pageId}` : '/admin/pages/create'
+)
+
+// 带着令牌回到表单：表单据此取回正文和之前填写的其它字段
+const backToForm = () => {
+  const token = draft?.token
+  router.push({ path: returnPath.value, query: token ? { [PAGE_DRAFT_QUERY_KEY]: token } : {} })
+}
+
+const keepContent = () => {
+  if (draft) savePageDraft({ ...draft, content: content.value })
+}
 
 const handleSave = () => {
-  // Save content to localStorage or sessionStorage temporarily
-  // In a real app, you might want to call an API here
-  localStorage.setItem('tempEditorContent', content.value)
-
+  keepContent()
   ElMessage.success('Content saved temporarily!')
-
-  // Navigate back to the create page view with the saved content
-  if (mode.value === 'create') {
-    router.push({
-      path: '/admin/pages/create',
-      query: {
-        content: content.value,
-        pageId: pageId.value
-      }
-    })
-  } else {
-    router.push({
-      path: '/admin/pages/edit/' + pageId.value,
-      query: {
-        content: content.value,
-        pageId: pageId.value
-      }
-    })
-  }
+  backToForm()
 }
 
 const handleBack = () => {
-  // Ask for confirmation if there are unsaved changes
-  if (content.value !== ((route.query.content as string) || '')) {
-    if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
-      // 即使用户选择离开，也保存当前内容
-      localStorage.setItem('tempEditorContent', content.value)
-      router.push({
-        path: '/admin/pages/create',
-        query: {
-          content: content.value,
-          pageId: pageId.value
-        }
-      })
-    }
-  } else {
-    router.push('/admin/pages/create')
+  if (content.value === initialContent) {
+    backToForm()
+    return
+  }
+  if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
+    // 确认离开时保留已输入的内容并带回表单，不做丢弃
+    keepContent()
+    backToForm()
   }
 }
 </script>

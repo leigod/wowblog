@@ -135,7 +135,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   ElForm,
@@ -150,6 +150,13 @@ import {
 import { ArrowLeft, Delete, Upload, ZoomIn } from '@element-plus/icons-vue'
 import { updatePage, getPageInfo } from '@/api/services/pages'
 import { uploadFile } from '@/api/services/common'
+import {
+  PAGE_DRAFT_QUERY_KEY,
+  clearPageDraft,
+  createPageDraft,
+  draftTokenFromQuery,
+  getPageDraft
+} from '@/utils/pageDraft'
 // import { getUserMe } from '@/api/services/user'
 
 // 初始化i18n
@@ -219,11 +226,7 @@ const handleSubmit = async () => {
       console.log('API response:', res)
       if (res.code === 1) {
         ElMessage.success(t('admin.pages.page.edit.success'))
-        localStorage.removeItem('tempEditorContent')
-        localStorage.removeItem('tempPageTitle')
-        localStorage.removeItem('tempPageSlug')
-        localStorage.removeItem('tempPageCover')
-        localStorage.removeItem('tempPageDescription')
+        clearPageDraft()
         router.push('/admin/pages')
       } else {
         ElMessage.error(t('admin.pages.page.edit.error'))
@@ -236,24 +239,63 @@ const handleSubmit = async () => {
 
 // 打开内容编辑器
 const openContentEditor = () => {
-  // 保存当前内容到localStorage
-  localStorage.setItem('tempPageTitle', pageForm.title)
-  localStorage.setItem('tempPageSlug', pageForm.slug)
-  localStorage.setItem('tempPageCover', pageForm.socialImage || '')
-  localStorage.setItem('tempPageDescription', pageForm.seoDescription || '')
-  router.push({
-    path: '/admin/content-editor',
-    query: {
-      content: pageForm.content,
-      pageId: route.params.id,
-      mode: 'edit'
+  // 把正文和已填写的其它字段存成草稿；地址栏只带令牌，由编辑器页按令牌取回
+  const draft = createPageDraft({
+    mode: 'edit',
+    pageId: String(route.params.id),
+    content: pageForm.content,
+    form: {
+      title: pageForm.title,
+      slug: pageForm.slug,
+      image: pageForm.socialImage || '',
+      description: pageForm.seoDescription || ''
     }
   })
+  router.push({ path: '/admin/content-editor', query: { [PAGE_DRAFT_QUERY_KEY]: draft.token } })
 }
 
 // 返回上一页
 const handleBack = () => {
+  clearPageDraft()
   router.push('/admin/pages')
+}
+
+// 从内容编辑器返回时（地址栏带令牌），取回正文和之前填写的其它字段
+const restoreDraft = () => {
+  const draft = getPageDraft(draftTokenFromQuery(route.query[PAGE_DRAFT_QUERY_KEY]))
+  // 只认“编辑当前这个页面”的草稿，避免套用别的页面或新建表单留下的内容
+  if (!draft || draft.mode !== 'edit' || draft.pageId !== String(route.params.id)) return
+  pageForm.content = draft.content
+  pageForm.title = draft.form.title
+  pageForm.slug = draft.form.slug
+  pageForm.socialImage = draft.form.image || null
+  pageForm.seoDescription = draft.form.description || null
+}
+
+// 组件挂载时
+onMounted(async () => {
+  // 先等服务端数据落定，再套用编辑器带回的草稿，两者不能并发：
+  // 此前用 100ms 定时器去接草稿，接口返回较慢时（生产环境）服务端的旧正文
+  // 会覆盖掉刚编辑好的内容，提交上去的还是旧内容。
+  const loaded = await loadPageInfo()
+  if (loaded) restoreDraft()
+})
+
+const loadPageInfo = async (): Promise<boolean> => {
+  try {
+    const res = await getPageInfo(route.params.id as string)
+    if (res.code !== 1 || !res.data) return false
+    pageForm.title = res.data.title
+    pageForm.slug = res.data.slug
+    pageForm.content = res.data.content
+    pageForm.socialImage = res.data.image
+    pageForm.seoDescription = res.data.seo_desc
+    return true
+  } catch (error) {
+    console.error('加载页面信息失败:', error)
+    // 将错误向上传播，确保全局错误处理能够正常工作
+    throw error
+  }
 }
 
 // 预览上传的图片
@@ -277,80 +319,6 @@ const beforeUpload = (file: File) => {
   }
 
   return true
-}
-
-// 加载内容（从路由参数或localStorage）
-const loadContent = () => {
-  // 优先从路由参数获取内容
-  if (route.query.content) {
-    pageForm.content = route.query.content as string
-    localStorage.setItem('tempEditorContent', pageForm.content)
-  } else {
-    // 如果路由参数中没有，则尝试从localStorage获取
-    const savedContent = localStorage.getItem('tempEditorContent')
-    if (savedContent) {
-      pageForm.content = savedContent
-    }
-  }
-  if (route.query.content) {
-    // 从localStorage获取其他字段
-    const savedTitle = localStorage.getItem('tempPageTitle')
-    const savedSlug = localStorage.getItem('tempPageSlug')
-    const savedCover = localStorage.getItem('tempPageCover')
-    const savedDescription = localStorage.getItem('tempPageDescription')
-
-    if (savedTitle) {
-      pageForm.title = savedTitle
-    }
-    if (savedSlug) {
-      pageForm.slug = savedSlug
-    }
-    if (savedCover) {
-      pageForm.socialImage = savedCover
-    }
-    if (savedDescription) {
-      pageForm.seoDescription = savedDescription
-    }
-  }
-}
-
-// 组件挂载时
-onMounted(() => {
-  loadPageInfo()
-  setTimeout(() => {
-    loadContent()
-  }, 100)
-
-  // 仅用于调试，实际项目中可以移除
-  // getUserMe().then((res) => {
-  //   console.log(res)
-  // })
-})
-
-// 监听路由参数变化
-onBeforeRouteUpdate((to) => {
-  if (to.query.content) {
-    pageForm.content = to.query.content as string
-    localStorage.setItem('tempEditorContent', pageForm.content)
-  }
-})
-
-const loadPageInfo = async () => {
-  try {
-    const res = await getPageInfo(route.params.id as string)
-    console.log(res)
-    if (res.code === 1) {
-      pageForm.title = res.data.title
-      pageForm.slug = res.data.slug
-      pageForm.content = res.data.content
-      pageForm.socialImage = res.data.image
-      pageForm.seoDescription = res.data.seo_desc
-    }
-  } catch (error) {
-    console.error('加载页面信息失败:', error)
-    // 将错误向上传播，确保全局错误处理能够正常工作
-    throw error
-  }
 }
 
 // 上传进度

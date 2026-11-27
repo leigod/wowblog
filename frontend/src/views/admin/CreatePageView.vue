@@ -139,7 +139,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   ElForm,
@@ -154,6 +154,13 @@ import {
 import { ArrowLeft, Upload, Delete, ZoomIn } from '@element-plus/icons-vue'
 import { createPage } from '@/api/services/pages'
 import { uploadFile } from '@/api/services/common'
+import {
+  PAGE_DRAFT_QUERY_KEY,
+  clearPageDraft,
+  createPageDraft,
+  draftTokenFromQuery,
+  getPageDraft
+} from '@/utils/pageDraft'
 // import { getUserMe } from '@/api/services/user'
 
 const { t } = useI18n()
@@ -221,11 +228,7 @@ const handleSubmit = async () => {
       console.log('API response:', res)
       if (res.code === 1) {
         ElMessage.success(t('admin.pages.page.create.success'))
-        localStorage.removeItem('tempEditorContent')
-        localStorage.removeItem('tempPageTitle')
-        localStorage.removeItem('tempPageSlug')
-        localStorage.removeItem('tempPageCover')
-        localStorage.removeItem('tempPageDescription')
+        clearPageDraft()
         router.push('/admin/pages')
       } else {
         ElMessage.error(t('admin.pages.page.create.error'))
@@ -238,80 +241,40 @@ const handleSubmit = async () => {
 
 // 打开内容编辑器
 const openContentEditor = () => {
-  // 保存当前内容到localStorage
-  localStorage.setItem('tempPageTitle', pageForm.title)
-  localStorage.setItem('tempPageSlug', pageForm.slug)
-  localStorage.setItem('tempPageCover', pageForm.socialImage || '')
-  localStorage.setItem('tempPageDescription', pageForm.seoDescription || '')
-  router.push({
-    path: '/admin/content-editor',
-    query: {
-      content: pageForm.content
+  // 把正文和已填写的其它字段存成草稿；地址栏只带令牌，由编辑器页按令牌取回
+  const draft = createPageDraft({
+    mode: 'create',
+    pageId: '',
+    content: pageForm.content,
+    form: {
+      title: pageForm.title,
+      slug: pageForm.slug,
+      image: pageForm.socialImage || '',
+      description: pageForm.seoDescription || ''
     }
   })
+  router.push({ path: '/admin/content-editor', query: { [PAGE_DRAFT_QUERY_KEY]: draft.token } })
 }
 
 // 返回上一页
 const handleBack = () => {
+  clearPageDraft()
   router.push('/admin/pages')
 }
 
-// 加载内容（从路由参数或localStorage）
-const firstLoad = ref(true)
-const loadContent = () => {
-  // 优先从路由参数获取内容
-  if (route.query.content) {
-    pageForm.content = route.query.content as string
-    localStorage.setItem('tempEditorContent', pageForm.content)
-    firstLoad.value = false
-  } else {
-    // 如果路由参数中没有，则尝试从localStorage获取，避免获取到之前数据，首次加载时不获取
-    if (!firstLoad.value) {
-      const savedContent = localStorage.getItem('tempEditorContent')
-      if (savedContent) {
-        pageForm.content = savedContent
-      }
-    }
-  }
-  if (!firstLoad.value) {
-    // 从localStorage获取其他字段
-    const savedTitle = localStorage.getItem('tempPageTitle')
-    const savedSlug = localStorage.getItem('tempPageSlug')
-    const savedCover = localStorage.getItem('tempPageCover')
-    const savedDescription = localStorage.getItem('tempPageDescription')
-
-    if (savedTitle) {
-      pageForm.title = savedTitle
-    }
-    if (savedSlug) {
-      pageForm.slug = savedSlug
-    }
-    if (savedCover) {
-      pageForm.socialImage = savedCover
-    }
-    if (savedDescription) {
-      pageForm.seoDescription = savedDescription
-    }
-  }
+// 从内容编辑器返回时（地址栏带令牌），取回正文和之前填写的其它字段
+const restoreDraft = () => {
+  const draft = getPageDraft(draftTokenFromQuery(route.query[PAGE_DRAFT_QUERY_KEY]))
+  if (!draft || draft.mode !== 'create') return
+  pageForm.content = draft.content
+  pageForm.title = draft.form.title
+  pageForm.slug = draft.form.slug
+  pageForm.socialImage = draft.form.image || null
+  pageForm.seoDescription = draft.form.description || null
 }
 
 // 组件挂载时
-onMounted(() => {
-  loadContent()
-
-  // 仅用于调试，实际项目中可以移除
-  // getUserMe().then((res) => {
-  //   console.log(res)
-  // })
-})
-
-// 监听路由参数变化
-onBeforeRouteUpdate((to) => {
-  if (to.query.content) {
-    pageForm.content = to.query.content as string
-    localStorage.setItem('tempEditorContent', pageForm.content)
-  }
-})
+onMounted(restoreDraft)
 
 // 预览上传的图片
 const handlePreview = (file: any) => {
