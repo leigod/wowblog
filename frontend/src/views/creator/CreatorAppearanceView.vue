@@ -26,7 +26,9 @@
                 :before-upload="(f: File) => beforePngUpload(f, 'logo')"
                 :http-request="(opt: any) => doUpload(opt, 'logo')"
               >
-                <el-button type="primary" plain>{{ t('creator.appearance.upload_logo') }}</el-button>
+                <el-button type="primary" plain>{{
+                  t('creator.appearance.upload_logo')
+                }}</el-button>
               </el-upload>
               <el-button v-if="form.logo" text type="danger" @click="form.logo = null">
                 {{ t('creator.appearance.remove') }}
@@ -50,7 +52,9 @@
                 :before-upload="(f: File) => beforePngUpload(f, 'favicon')"
                 :http-request="(opt: any) => doUpload(opt, 'favicon')"
               >
-                <el-button type="primary" plain>{{ t('creator.appearance.upload_favicon') }}</el-button>
+                <el-button type="primary" plain>{{
+                  t('creator.appearance.upload_favicon')
+                }}</el-button>
               </el-upload>
               <el-button v-if="form.favicon" text type="danger" @click="form.favicon = null">
                 {{ t('creator.appearance.remove') }}
@@ -73,7 +77,8 @@
               <div class="layout-thumb">
                 <template v-if="opt.value === 'magazine'">
                   <span class="lt-hero"></span>
-                  <span class="lt-cell"></span><span class="lt-cell"></span><span class="lt-cell"></span>
+                  <span class="lt-cell"></span><span class="lt-cell"></span
+                  ><span class="lt-cell"></span>
                 </template>
                 <template v-else-if="opt.value === 'stacked'">
                   <span class="lt-row" v-for="i in 3" :key="i"></span>
@@ -98,10 +103,17 @@
               <el-radio :value="0">{{ t('creator.appearance.watermark_off') }}</el-radio>
             </el-radio-group>
             <template v-if="form.watermark_enabled === 1">
-              <el-radio-group v-model="form.watermark_mode" size="small">
-                <el-radio-button value="corner">{{ t('creator.appearance.watermark_corner') }}</el-radio-button>
-                <el-radio-button value="tile">{{ t('creator.appearance.watermark_tile') }}</el-radio-button>
-              </el-radio-group>
+              <div style="display: flex; align-items: center; width: 100%; margin: 10px 0">
+                <span class="upload-hint">{{ t('creator.appearance.watermark_position') }}</span>
+                <el-radio-group v-model="form.watermark_mode">
+                  <el-radio-button value="corner">{{
+                    t('creator.appearance.watermark_corner')
+                  }}</el-radio-button>
+                  <el-radio-button value="tile">{{
+                    t('creator.appearance.watermark_tile')
+                  }}</el-radio-button>
+                </el-radio-group>
+              </div>
             </template>
             <p class="upload-hint">{{ t('creator.appearance.watermark_hint') }}</p>
           </div>
@@ -197,13 +209,16 @@ const selectLayout = (value: BlogLayout) => {
 }
 
 // 水印开关联动：开启时样式默认右下角；非开启状态样式跟随全站
-watch(() => form.watermark_enabled, (enabled) => {
-  if (enabled === 1 && form.watermark_mode === null) {
-    form.watermark_mode = 'corner'
-  } else if (enabled !== 1) {
-    form.watermark_mode = null
+watch(
+  () => form.watermark_enabled,
+  (enabled) => {
+    if (enabled === 1 && form.watermark_mode === null) {
+      form.watermark_mode = 'corner'
+    } else if (enabled !== 1) {
+      form.watermark_mode = null
+    }
   }
-})
+)
 
 const loadConfig = async () => {
   loading.value = true
@@ -242,7 +257,7 @@ const doUpload = async (option: any, target: 'logo' | 'favicon') => {
       // 上传接口返回 url（相对 /static/...）与 full_url（完整地址）。
       // 必须存 full_url：相对路径会被前端 dev server（5173）解析而 404
       // （与文章封面的处理一致）
-      const url = typeof res.data === 'string' ? res.data : (res.data.full_url || res.data.url)
+      const url = typeof res.data === 'string' ? res.data : res.data.full_url || res.data.url
       if (target === 'logo') {
         form.logo = url
       } else {

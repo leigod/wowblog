@@ -57,6 +57,7 @@ export default {
     watermark_follow_site: 'Follow site settings',
     watermark_on: 'Enabled',
     watermark_off: 'Disabled',
+    watermark_position: 'Watermark position:',
     watermark_corner: 'Corner',
     watermark_tile: 'Tiled',
     // @ is vue-i18n linked-message syntax; a literal must be written as {'@'}

@@ -1173,6 +1173,7 @@ watch(activeTab, (newTab) => {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
+  margin-top: 20px;
 }
 
 .form-hint {

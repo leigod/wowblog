@@ -57,6 +57,7 @@ export default {
     watermark_follow_site: '跟随全站设置',
     watermark_on: '开启',
     watermark_off: '关闭',
+    watermark_position: '水印位置：',
     watermark_corner: '右下角',
     watermark_tile: '平铺',
     // 注意：vue-i18n 把 @ 当作「链接消息」语法，字面量必须写成 {'@'}
