@@ -578,7 +578,7 @@ export default {
   'admin.settings.basic.watermark': 'Image Watermark',
   'admin.settings.basic.watermark_corner': 'Corner',
   'admin.settings.basic.watermark_tile': 'Tiled',
-  'admin.settings.basic.watermark_hint': 'When enabled, images uploaded by Admin/Editor/Contributor get the site watermark (site logo first, then favicon + site title, or site title as fallback); Authors can override this in their own appearance settings',
+  'admin.settings.basic.watermark_hint': 'When enabled, article images (body and cover) uploaded by Admin/Editor/Contributor get the site watermark (site logo first, then favicon + site title, or site title as fallback); Authors can override this in their own appearance settings',
   'admin.comment.view.comments': 'Comments',
   'admin.comment.view.words': 'Sensitive Words',
   'admin.comment.words.search_placeholder': 'Search word',

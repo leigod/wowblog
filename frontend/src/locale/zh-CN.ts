@@ -630,7 +630,7 @@ export default {
   'admin.settings.basic.watermark': '图片水印',
   'admin.settings.basic.watermark_corner': '右下角',
   'admin.settings.basic.watermark_tile': '平铺',
-  'admin.settings.basic.watermark_hint': '开启后，后台/编辑/贡献者上传的正文图片自动带网站水印（优先网站 Logo，其次 Favicon + 站名，都没有时显示站名）；Author 可在自己的外观设置里覆盖此开关',
+  'admin.settings.basic.watermark_hint': '开启后，后台/编辑/贡献者上传的文章图片（正文与封面）自动带网站水印（优先网站 Logo，其次 Favicon + 站名，都没有时显示站名）；Author 可在自己的外观设置里覆盖此开关',
   'admin.comment.view.comments': '评论列表',
   'admin.comment.view.words': '敏感词',
   'admin.comment.words.search_placeholder': '搜索敏感词',

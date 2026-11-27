@@ -853,7 +853,8 @@ const handleCustomHttpRequest = async (options: any) => {
   try {
     const res = await uploadFile({
       file: options.file,
-      purpose: 'cover',
+      // 文章封面 / OG 图与正文同属文章图片：服务端按上传者身份（网站或个人博客）合成水印
+      purpose: 'content',
       onProgress: (progressEvent) => {
         if (progressEvent.total > 0) {
           const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100)
@@ -1272,7 +1273,8 @@ const handleCustomUpload = async (options: any) => {
   try {
     const res = await uploadFile({
       file: options.file,
-      purpose: 'cover',
+      // 文章封面 / OG 图与正文同属文章图片：服务端按上传者身份（网站或个人博客）合成水印
+      purpose: 'content',
       onProgress: (progressEvent) => {
         if (progressEvent.total > 0) {
           const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100)

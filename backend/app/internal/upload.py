@@ -73,8 +73,9 @@ async def upload_file(
     """通用文件上传。
 
     purpose:
-      - content（默认）: 正文图片，优化（压缩转 WebP）+ 按上传者身份合成水印；
-      - cover: 封面/OG/分类等展示图，仅优化不加水印；
+      - content（默认）: 文章图片（正文、文章封面、文章 OG 图），优化（压缩转 WebP）
+        + 按上传者身份合成水印（Admin/Editor/Contributor → 网站，Author → 个人博客）；
+      - cover: 分类/系列/页面/文档等站点素材图，仅优化不加水印；
       - material: logo/favicon 等标识素材，完全跳过图片管线（保持原格式原字节）。
     """
     try:
