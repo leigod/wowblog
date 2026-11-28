@@ -668,6 +668,7 @@ import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import TableRow from '@tiptap/extension-table-row'
 import Mention from '@tiptap/extension-mention'
+import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu, EditorContent, FloatingMenu, useEditor } from '@tiptap/vue-3'
 
 import suggestion from '../extensions/mention/suggestion'
@@ -731,7 +732,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
-  placeholder: 'Write something...',
+  placeholder: '',
   customClass: ''
 })
 
@@ -797,6 +798,7 @@ const editor = useEditor({
     }
   },
   extensions: [
+    Placeholder.configure({ placeholder: props.placeholder }),
     ImageAligned,
     Color.configure({
       types: [TextStyle.name, ListItem.name]
@@ -2615,5 +2617,14 @@ body {
   .simple-editor-content {
     padding-bottom: calc(var(--tt-toolbar-height) * 4 + var(--tt-safe-area-bottom) + 1.5rem);
   }
+}
+
+/* 占位文案（由 placeholder 属性经 i18n 传入） */
+.ProseMirror p.is-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--placeholder-color, #9ca3af);
+  pointer-events: none;
 }
 </style>
