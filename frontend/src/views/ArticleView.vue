@@ -235,7 +235,7 @@
       </el-container>
     </div>
 
-    <!-- 固定操作按钮区域B（始终在视口底部，当按钮A可见时隐藏） -->
+    <!-- 固定操作按钮区域B（阅读正文时贴在视口底部；到达文末后隐藏，操作由文末的按钮区域A承担） -->
     <div v-show="isShowFixedActions" class="wy-fixed-actions-container">
       <div class="wy-article-functions">
         <div class="wy-btn-container" data-like-btn-area-b>
@@ -1265,16 +1265,23 @@ const setupTableOfContentsListeners = () => {
 }
 
 /**
+ * 文章页的页脚元素：网站版是 SiteFooter（.site-footer），blog 版是 BlogFooter（.bh-footer）。
+ * 页脚改版后根节点不再带 .wy-footer，按旧类名查找永远取不到。
+ */
+const getArticleFooter = (): HTMLElement | null =>
+  document.querySelector('.site-footer, .bh-footer') as HTMLElement | null
+
+/**
  * 目录可见性与章节高亮（scrollspy）。
  * 可见性：封面滚出视口后才出现——封面宽 1120px，会伸进两侧留白，
- * 而目录就挂在那片留白里，不同时出现就永远不会互相压叠。
+ * 而目录就挂在那片留白里，不同时出现就永远不会互相压叠；页脚进入视口后隐藏。
  * 高亮：取「最后一个已经滚到阅读区（顶部 120px 以内）的标题」作为当前章节。
  */
 const updateTocState = () => {
   if (!showArticleTOC.value) return
 
   const coverEl = document.querySelector('.wy-article-cover') as HTMLElement | null
-  const footerEl = document.querySelector('.wy-footer') as HTMLElement | null
+  const footerEl = getArticleFooter()
   const coverPassed = !coverEl || coverEl.getBoundingClientRect().bottom <= 96
   const footerVisible = footerEl ? footerEl.getBoundingClientRect().top < window.innerHeight : false
   tocVisible.value = coverPassed && !footerVisible
@@ -1879,20 +1886,13 @@ const handleScroll = () => {
   const rect = (domElement as HTMLElement).getBoundingClientRect()
   const windowHeight = window.innerHeight
 
-  // 检测 footer 是否可见
-  const footerElement = document.querySelector('.wy-footer') as HTMLElement
-  let isFooterVisible = false
-  if (footerElement) {
-    const footerRect = footerElement.getBoundingClientRect()
-    // footer 至少部分在视口内
-    isFooterVisible = footerRect.top < windowHeight && footerRect.bottom > 0
-  }
-
-  // A元素在视口内可见（至少部分可见）
-  const isAVisible = rect.top < windowHeight && rect.bottom > 0
-
-  // 当A可见或footer可见时，隐藏B；否则显示B
-  isShowFixedActions.value = !isAVisible && !isFooterVisible
+  // 读者是否已到达文末：A（文末的内嵌操作栏）的上沿一旦进入视口就算到达。
+  // 到达之后 B 不再出现——此时操作栏就在文章末尾，再往下是「更多文章」和页脚，
+  // 不属于正文区域。
+  // 不能只判断「A 是否还在视口内」：A 滑出视口上方后 B 会重新出现，而文末以下的内容
+  // 可能很高（blog 文章页：更多文章 + 博客信息区 + blog 页脚），B 会一直悬浮到页脚上。
+  // 页脚在 A 的下方，没到文末就不可能看到页脚，所以这里不需要再单独判断页脚。
+  isShowFixedActions.value = rect.top >= windowHeight
 }
 
 onUnmounted(() => {
