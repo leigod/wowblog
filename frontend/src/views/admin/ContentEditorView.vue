@@ -4,14 +4,17 @@
       <el-button link type="primary" @click="handleBack">
         <el-icon>
           <ArrowLeft />
-        </el-icon> Back
+        </el-icon>
+        {{ t('admin.pages.content_editor.back') }}
       </el-button>
-      <h1>Content Editor</h1>
-      <el-button type="primary" @click="handleSave"> Save Content </el-button>
+      <h1>{{ t('admin.pages.content_editor.title') }}</h1>
+      <el-button type="primary" @click="handleSave">
+        {{ t('admin.pages.content_editor.save') }}
+      </el-button>
     </div>
 
     <div class="editor-wrapper">
-      <TiptapEditor v-model="content" placeholder="Add page content here" />
+      <TiptapEditor v-model="content" :placeholder="t('admin.pages.content_editor.placeholder')" />
     </div>
   </div>
 </template>
@@ -19,7 +22,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElButton, ElIcon, ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+import { ElButton, ElIcon, ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import TiptapEditor from '@/components/TiptapEditor.vue'
 import {
@@ -29,6 +33,7 @@ import {
   savePageDraft
 } from '@/utils/pageDraft'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 
@@ -54,20 +59,32 @@ const keepContent = () => {
 
 const handleSave = () => {
   keepContent()
-  ElMessage.success('Content saved temporarily!')
+  ElMessage.success(t('admin.pages.content_editor.save_success'))
   backToForm()
 }
 
-const handleBack = () => {
+const handleBack = async () => {
   if (content.value === initialContent) {
     backToForm()
     return
   }
-  if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
-    // 确认离开时保留已输入的内容并带回表单，不做丢弃
-    keepContent()
-    backToForm()
+  try {
+    await ElMessageBox.confirm(
+      t('admin.pages.content_editor.unsaved_message'),
+      t('admin.pages.content_editor.unsaved_title'),
+      {
+        confirmButtonText: t('admin.pages.content_editor.unsaved_leave'),
+        cancelButtonText: t('admin.pages.content_editor.unsaved_stay'),
+        type: 'warning'
+      }
+    )
+  } catch {
+    // 用户选择“继续编辑”：留在编辑器，不做任何事
+    return
   }
+  // 确认离开时保留已输入的内容并带回表单，不做丢弃
+  keepContent()
+  backToForm()
 }
 </script>
 

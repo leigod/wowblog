@@ -86,5 +86,17 @@ export default {
       content: '请输入页面内容。',
       seodesc_length: 'SEO 描述长度必须在 500 个字符以内，建议160个字符最佳'
     }
+  },
+  // 内容编辑器页（/admin/content-editor）：从页面表单的“点击编辑页面内容”进入
+  content_editor: {
+    title: '内容编辑器',
+    back: '返回',
+    save: '保存内容',
+    placeholder: '在此输入页面内容…',
+    save_success: '内容已带回表单，提交后才会生效',
+    unsaved_title: '有未保存的修改',
+    unsaved_message: '离开编辑器会把当前内容带回表单，提交后才会生效。确定离开吗？',
+    unsaved_leave: '离开',
+    unsaved_stay: '继续编辑'
   }
 }

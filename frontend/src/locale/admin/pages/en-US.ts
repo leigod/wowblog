@@ -88,5 +88,18 @@ export default {
       content: 'Please enter the page content.',
       seodesc_length: 'SEO description length must be between 50 and 160 characters.'
     }
+  },
+  // Content editor page (/admin/content-editor), opened from the page form
+  content_editor: {
+    title: 'Content Editor',
+    back: 'Back',
+    save: 'Save Content',
+    placeholder: 'Add page content here',
+    save_success: 'Content brought back to the form. It takes effect after you submit.',
+    unsaved_title: 'Unsaved changes',
+    unsaved_message:
+      'Leaving the editor brings the current content back to the form. It takes effect after you submit. Leave now?',
+    unsaved_leave: 'Leave',
+    unsaved_stay: 'Keep editing'
   }
 }
